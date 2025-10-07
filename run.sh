@@ -1,7 +1,19 @@
 #!/bin/bash
 # filepath: d:\github\linux-toolbox\run.sh
 
-TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/tools" && pwd)"
+REPO_URL="https://github.com/nooblk-98/linux-toolbox.git"
+REPO_DIR="/tmp/linux-toolbox"
+
+# Clone or update repo
+if [ ! -d "$REPO_DIR/.git" ]; then
+    echo -e "\033[0;34m[INFO]\033[0m Cloning linux-toolbox from GitHub..."
+    git clone "$REPO_URL" "$REPO_DIR"
+else
+    echo -e "\033[0;34m[INFO]\033[0m Updating linux-toolbox from GitHub..."
+    git -C "$REPO_DIR" pull
+fi
+
+TOOLS_DIR="$REPO_DIR/tools"
 
 # Colors
 GREEN='\033[0;32m'
