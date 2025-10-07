@@ -18,9 +18,10 @@ echo "3. America/Los_Angeles"
 echo "4. Europe/London"
 echo "5. Europe/Berlin"
 echo "6. Asia/Tokyo"
-echo "7. Custom (manual entry)"
+echo "7. Asia/Colombo"
+echo "8. Custom (manual entry)"
 echo ""
-read -p "Select timezone [1-7]: " tz_choice
+read -p "Select timezone [1-8]: " tz_choice
 
 case $tz_choice in
     1) timezone="UTC" ;;
@@ -29,7 +30,8 @@ case $tz_choice in
     4) timezone="Europe/London" ;;
     5) timezone="Europe/Berlin" ;;
     6) timezone="Asia/Tokyo" ;;
-    7)
+    7) timezone="Asia/Colombo" ;;
+    8)
         read -p "Enter timezone (e.g., Asia/Shanghai): " timezone
         ;;
     *)
