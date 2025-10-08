@@ -7,7 +7,21 @@ NC='\033[0m'
 
 echo -e "${YELLOW}Docker Container Remover${NC}"
 
-containers=($(docker ps -a --format '{{.ID}} {{.Names}}'))
+containers=()
+names=()
+ids=()
+
+while IFS= read -r line; do
+    cid=$(echo "$line" | awk '{print $1}')
+    cname=$(echo "$line" | awk '{print $2}')
+    # Only add if name is not empty
+    if [ -n "$cname" ]; then
+        containers+=("$cid $cname")
+        names+=("$cname")
+        ids+=("$cid")
+    fi
+done < <(docker ps -a --format '{{.ID}} {{.Names}}')
+
 if [ ${#containers[@]} -eq 0 ]; then
     echo -e "${RED}No containers found.${NC}"
     exit 0
@@ -32,7 +46,7 @@ if [[ "$choice" == "0" ]]; then
 fi
 
 if [[ "$choice" -ge 1 && "$choice" -le ${#containers[@]} ]]; then
-    selected=$(echo "${containers[$((choice-1))]}")
+    selected="${containers[$((choice-1))]}"
     cid=$(echo "$selected" | awk '{print $1}')
     cname=$(echo "$selected" | awk '{print $2}')
     echo -e "${YELLOW}Stopping container $cname ($cid)...${NC}"
