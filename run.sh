@@ -20,14 +20,48 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 NC='\033[0m'
 
+show_banner() {
+    echo -e "${GREEN}██╗     ██╗███╗   ██╗██╗   ██╗██╗  ██╗    ████████╗ ██████╗  ██████╗ ██╗     ███████╗"
+    echo -e "██║     ██║████╗  ██║██║   ██║╚██╗██╔╝    ╚══██╔══╝██╔═══██╗██╔═══██╗██║     ██╔════╝"
+    echo -e "██║     ██║██╔██╗ ██║██║   ██║ ╚███╔╝        ██║   ██║   ██║██║   ██║██║     ███████╗"
+    echo -e "██║     ██║██║╚██╗██║██║   ██║ ██╔██╗        ██║   ██║   ██║██║   ██║██║     ╚════██║"
+    echo -e "███████╗██║██║ ╚████║╚██████╔╝██╔╝ ██╗       ██║   ╚██████╔╝╚██████╔╝███████╗███████║"
+    echo -e "╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝       ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝${NC}"
+    echo -e ""
+    echo -e "${YELLOW}by Nooblk${NC}\n"
+}
+
+# System resource info (plain text)
+show_system_info() {
+    clear
+    show_banner
+    echo -e "${CYAN}========== System Resource Monitor ==========${NC}"
+    # OS Info
+    os_name=$(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+    echo -e "${MAGENTA}OS: ${NC}${os_name}"
+    # RAM
+    mem_total=$(free -m | awk '/Mem:/ {print $2}')
+    mem_used=$(free -m | awk '/Mem:/ {print $3}')
+    mem_percent=$((mem_used * 100 / mem_total))
+    echo -e "${BLUE}Memory Usage:${NC} ${mem_used}MB/${mem_total}MB (${mem_percent}%)"
+    # Disk
+    disk_total=$(df -h / | tail -1 | awk '{print $2}')
+    disk_used=$(df -h / | tail -1 | awk '{print $3}')
+    disk_percent=$(df -h / | tail -1 | awk '{print $5}' | tr -d '%')
+    echo -e "${YELLOW}Disk Usage:  ${NC}${disk_used}/${disk_total} (${disk_percent}%)"
+    echo -e "${CYAN}=============================================${NC}\n"
+}
+
 print_header() {
-    echo -e "${BLUE}$1${NC}"
+    echo -e "${GREEN}$1${NC}"
 }
 
 print_status() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+    echo -e "${CYAN}[INFO]${NC} $1"
 }
 
 print_error() {
@@ -59,36 +93,38 @@ discover_tools_in_category() {
 
 # Display category menu
 show_category_menu() {
-    print_header "Linux Toolbox Categories"
-    echo "=========================="
+    show_system_info
+    print_header "🌈 Linux Toolbox Categories 🌈"
+    echo "--------------------------------"
     local i=1
     local categories=($(discover_categories))
     for cat in "${categories[@]}"; do
-        echo -e "${GREEN}$i.${NC} $cat"
+        echo -e "${CYAN}$i.${NC} ${YELLOW}$cat${NC}"
         ((i++))
     done
     echo -e "${RED}0.${NC} Exit"
     echo ""
-    echo -e "${YELLOW}Select a category [0-$(($i-1))]:${NC} "
+    echo -e "${MAGENTA}Select a category [0-$(($i-1))]:${NC} "
     echo ""
     echo "Tip: Press Ctrl+C to quit at any time."
 }
 
 # Display tool menu for a category
 show_tool_menu() {
+    show_system_info
     local category="$1"
-    print_header "Category: $category"
-    echo "--------------------------"
+    print_header "🛠️ Category: $category"
+    echo "--------------------------------"
     local i=1
     local tools=($(discover_tools_in_category "$category"))
     for tool in "${tools[@]}"; do
         tool_name=$(basename "$tool" .sh)
-        echo -e "${GREEN}$i.${NC} $tool_name"
+        echo -e "${CYAN}$i.${NC} ${GREEN}$tool_name${NC}"
         ((i++))
     done
     echo -e "${RED}0.${NC} Back"
     echo ""
-    echo -e "${YELLOW}Select a tool to run [0-$(($i-1))]:${NC} "
+    echo -e "${MAGENTA}Select a tool to run [0-$(($i-1))]:${NC} "
 }
 
 main() {
