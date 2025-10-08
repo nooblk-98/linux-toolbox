@@ -70,15 +70,17 @@ print_error() {
 
 # Discover categories (subfolders with .sh files)
 discover_categories() {
-    find "$TOOLS_DIR" -mindepth 1 -type d | while read -r dir; do
+    local categories=()
+    while IFS= read -r -d '' dir; do
         if find "$dir" -maxdepth 1 -type f -name "*.sh" | grep -q .; then
-            basename "$dir"
+            categories+=("$(basename "$dir")")
         fi
-    done
+    done < <(find "$TOOLS_DIR" -mindepth 1 -maxdepth 1 -type d -print0)
     # Also include .sh files directly in tools/ as "General"
     if find "$TOOLS_DIR" -maxdepth 1 -type f -name "*.sh" | grep -q .; then
-        echo "General"
+        categories+=("General")
     fi
+    printf "%s\n" "${categories[@]}" | sort
 }
 
 # Discover tools in a category
