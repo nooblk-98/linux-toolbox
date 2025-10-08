@@ -50,8 +50,6 @@ services:
       - "${PHPMYADMIN_PORT}:80"
     depends_on:
       - mariadb
-    volumes:
-      - /opt/db/phpmyadmin_data:/sessions
 EOF
 
 echo -e "${GREEN}docker-compose.yml created at /opt/db/docker-compose.yml${NC}"
