@@ -5,21 +5,39 @@
 Run the toolbox directly (always latest version):
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/nooblk-98/linux-toolbox/main/run.sh)
+bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linux-toolbox/main/run.sh?$(date +%s)")
+```
+
+Or with wget:
+
+```bash
+bash <(wget -qO- "https://raw.githubusercontent.com/nooblk-98/linux-toolbox/main/run.sh?$(date +%s)")
 ```
 
 ## Tools List
 
-### system
+### SYSTEM
 - timezone.sh
 - auto-reboot.sh
 
-### docker
-- docker-install.sh
+### DOCKER_SCRIPTS  
+- docker-cleanup.sh
+- docker-remove-container.sh
 
-### webserver
+### NODE_JS_SCRIPTS
+- nodejs-install.sh
+
+### PHP_SCRIPTS
+- php-install.sh
+- php-extension-install.sh
+
+### INSTALL_DOCKER_APPS
+- install-mariadb10-phpmyadmin.sh
+
+### WEB_SERVER_RELATED
 - webserver-certbot.sh
 - certbot-renew.sh
 - certbot-add-domain.sh
 - add-reverse-proxy.sh
+- certbot-auto-renew-toggle.sh
 
