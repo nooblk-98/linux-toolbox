@@ -67,6 +67,7 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 - ssl-add-domain.sh - Add domains to SSL certificates
 - reverse-proxy.sh - Configure reverse proxy
 - ssl-auto-renew.sh - Toggle automatic SSL renewal
+- wordpress-backup.sh - WordPress site backup with database dump
 
 ### database
 - mariadb-phpmyadmin.sh - Install MariaDB 10 with phpMyAdmin
