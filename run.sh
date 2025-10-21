@@ -100,11 +100,22 @@ update_from_repo() {
     echo -e "${YELLOW}Updating Linux Toolbox from GitHub...${NC}"
     
     if [ -d "$REPO_DIR/.git" ]; then
-        git -C "$REPO_DIR" pull
+        cd "$REPO_DIR"
+        git reset --hard HEAD
+        git pull origin main
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ Successfully updated from repository!${NC}"
         else
             echo -e "${RED}✗ Failed to update from repository!${NC}"
+            echo -e "${YELLOW}Trying to clone fresh copy...${NC}"
+            cd /tmp
+            rm -rf "$REPO_DIR"
+            git clone "$REPO_URL" "$REPO_DIR"
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}✓ Successfully cloned repository!${NC}"
+            else
+                echo -e "${RED}✗ Failed to clone repository!${NC}"
+            fi
         fi
     else
         echo -e "${YELLOW}Cloning fresh copy from GitHub...${NC}"
