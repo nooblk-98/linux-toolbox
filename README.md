@@ -33,6 +33,20 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 ### system
 - timezone.sh - Configure system timezone
 - auto-reboot.sh - Schedule automatic reboots
+- firewall-manager.sh - UFW firewall management
+- ssh-hardening.sh - SSH security configuration
+- fail2ban-setup.sh - Install and configure Fail2ban
+- user-manager.sh - User account management
+- backup-manager.sh - Backup automation tool
+
+### network
+- bandwidth-test.sh - Network speed testing
+- port-scanner.sh - Simple port scanner
+- network-info.sh - Network configuration display
+
+### development
+- git-setup.sh - Git configuration and SSH keys
+- python-env.sh - Python virtual environment manager
 
 ### docker
 - install.sh - Install Docker and Docker Compose
@@ -55,6 +69,10 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 
 ### database
 - mariadb-phpmyadmin.sh - Install MariaDB 10 with phpMyAdmin
+- mysql-install.sh - Install MySQL server
+
+### monitoring
+- server-health.sh - Complete server health check
 
 *Note: Empty folders like DOCKER_SCRIPTS, NODE_JS_SCRIPTS, PHP_SCRIPTS, INSTALL_DOCKER_APPS, WEB_SERVER_RELATED should be removed from the repository as they are no longer used.*
 
