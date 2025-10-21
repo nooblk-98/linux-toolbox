@@ -47,6 +47,7 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 ### development
 - git-setup.sh - Git configuration and SSH keys
 - python-env.sh - Python virtual environment manager
+- pm2-manager.sh - PM2 process manager for Node.js
 
 ### docker
 - install.sh - Install Docker and Docker Compose
