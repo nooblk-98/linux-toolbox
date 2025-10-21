@@ -93,6 +93,33 @@ discover_tools_in_category() {
     fi
 }
 
+# Function to update from repo
+update_from_repo() {
+    clear
+    show_banner
+    echo -e "${YELLOW}Updating Linux Toolbox from GitHub...${NC}"
+    
+    if [ -d "$REPO_DIR/.git" ]; then
+        git -C "$REPO_DIR" pull
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ Successfully updated from repository!${NC}"
+        else
+            echo -e "${RED}✗ Failed to update from repository!${NC}"
+        fi
+    else
+        echo -e "${YELLOW}Cloning fresh copy from GitHub...${NC}"
+        rm -rf "$REPO_DIR"
+        git clone "$REPO_URL" "$REPO_DIR"
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ Successfully cloned repository!${NC}"
+        else
+            echo -e "${RED}✗ Failed to clone repository!${NC}"
+        fi
+    fi
+    
+    read -p "Press Enter to return to main menu..."
+}
+
 # Display category menu
 show_category_menu() {
     show_system_info
@@ -104,9 +131,10 @@ show_category_menu() {
         echo -e "${CYAN}$i.${NC} ${YELLOW}$cat${NC}"
         ((i++))
     done
+    echo -e "${MAGENTA}$i.${NC} Update from Repo"
     echo -e "${RED}0.${NC} Exit"
     echo ""
-    echo -e "${MAGENTA}Select a category [0-$(($i-1))]:${NC} "
+    echo -e "${MAGENTA}Select a category [0-$i]:${NC} "
     echo ""
     echo "Tip: Press Ctrl+C to quit at any time."
 }
@@ -138,9 +166,13 @@ main() {
         show_category_menu
         read cat_choice
         local categories=($(discover_categories))
+        local update_option=$((${#categories[@]} + 1))
+        
         if [[ "$cat_choice" == "0" ]]; then
             print_status "Exiting. Goodbye!"
             exit 0
+        elif [[ "$cat_choice" == "$update_option" ]]; then
+            update_from_repo
         elif [[ "$cat_choice" -ge 1 && "$cat_choice" -le "${#categories[@]}" ]]; then
             local category="${categories[$((cat_choice-1))]}"
             while true; do
