@@ -14,6 +14,20 @@ Or with wget:
 bash <(wget -qO- "https://raw.githubusercontent.com/nooblk-98/linux-toolbox/main/run.sh?$(date +%s)")
 ```
 
+## Force Fresh Download & Run
+
+Remove any cached version and run latest:
+
+```bash
+rm -f run.sh && curl -sSL "https://raw.githubusercontent.com/nooblk-98/linux-toolbox/main/run.sh" -o run.sh && chmod +x run.sh && ./run.sh
+```
+
+Or one-liner without local file:
+
+```bash
+rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linux-toolbox/main/run.sh")
+```
+
 ## Tools List
 
 ### SYSTEM
