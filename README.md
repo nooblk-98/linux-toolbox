@@ -62,12 +62,14 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 - extensions.sh - Install PHP extensions
 
 ### webserver
+- install-certbot.sh - Install Certbot and plugins
 - ssl-install.sh - Install SSL certificates with Certbot
 - ssl-renew.sh - Renew SSL certificates
 - ssl-add-domain.sh - Add domains to SSL certificates
 - reverse-proxy.sh - Configure reverse proxy
 - ssl-auto-renew.sh - Toggle automatic SSL renewal
 - wordpress-backup.sh - WordPress site backup with database dump
+- migrate-to-certbot.sh - Migrate existing SSL to Certbot management
 
 ### database
 - mariadb-phpmyadmin.sh - Install MariaDB 10 with phpMyAdmin
