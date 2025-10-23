@@ -31,16 +31,26 @@ if [ ! -d "$sites_available" ]; then
     sites_enabled="/etc/nginx/conf.d"
 fi
 
-site_files=($(find "$sites_available" -name "*.conf" -o -name "*" ! -name "default*" 2>/dev/null | grep -v "default"))
+# Find only valid nginx config files
+site_files=()
+while IFS= read -r -d '' file; do
+    # Skip if it's a directory, backup file, or contains shell script content
+    if [[ -f "$file" && ! "$file" =~ \.(backup|bak|old)$ ]] && ! grep -q "#!/bin/bash" "$file" 2>/dev/null; then
+        site_files+=("$file")
+    fi
+done < <(find "$sites_available" -maxdepth 1 -type f \( -name "*.conf" -o ! -name ".*" \) ! -name "default*" -print0 2>/dev/null)
+
 if [ ${#site_files[@]} -eq 0 ]; then
-    echo -e "${RED}No nginx site configurations found!${NC}"
+    echo -e "${RED}No valid nginx site configurations found!${NC}"
     exit 1
 fi
 
 echo ""
 for i in "${!site_files[@]}"; do
     site_name=$(basename "${site_files[$i]}" .conf)
-    echo -e "${GREEN}$((i+1)).${NC} $site_name (${site_files[$i]})"
+    # Show domain info from config
+    domains_preview=$(grep -E "^\s*server_name" "${site_files[$i]}" 2>/dev/null | head -1 | sed 's/server_name//g' | sed 's/;//g' | xargs || echo "unknown")
+    echo -e "${GREEN}$((i+1)).${NC} $site_name (domains: $domains_preview)"
 done
 
 echo ""
@@ -56,8 +66,8 @@ site_name=$(basename "$selected_site" .conf)
 
 echo -e "${YELLOW}Analyzing site: $site_name${NC}"
 
-# Extract domain names from nginx config
-domains=$(grep -E "server_name" "$selected_site" | grep -v "#" | sed 's/server_name//g' | sed 's/;//g' | xargs)
+# Extract domain names from nginx config more carefully
+domains=$(grep -E "^\s*server_name" "$selected_site" | grep -v "#" | sed 's/^\s*server_name\s*//g' | sed 's/;\s*$//g' | tr '\n' ' ' | xargs)
 if [ -z "$domains" ]; then
     read -p "Could not detect domains. Enter domains (space separated): " domains
 fi
@@ -74,7 +84,7 @@ if grep -q "ssl_certificate" "$selected_site"; then
     echo -e "${YELLOW}Site already has SSL configuration${NC}"
     
     # Show current SSL certificate info
-    cert_path=$(grep "ssl_certificate " "$selected_site" | head -1 | awk '{print $2}' | sed 's/;//')
+    cert_path=$(grep "^\s*ssl_certificate\s" "$selected_site" | head -1 | awk '{print $2}' | sed 's/;//')
     if [ -f "$cert_path" ]; then
         echo -e "${BLUE}Current certificate info:${NC}"
         openssl x509 -in "$cert_path" -text -noout | grep -E "(Subject:|Issuer:|Not After)" 2>/dev/null || echo "Could not read certificate"
@@ -86,18 +96,39 @@ if grep -q "ssl_certificate" "$selected_site"; then
         exit 0
     fi
     
-    # Remove existing SSL configuration
-    echo -e "${YELLOW}Removing existing SSL configuration...${NC}"
-    sudo sed -i '/ssl_/d' "$selected_site"
-    sudo sed -i '/listen 443/d' "$selected_site"
+    # Create temporary config without SSL
+    temp_config="/tmp/nginx_temp_$(basename "$selected_site")"
     
-    # Ensure port 80 listener exists
-    if ! grep -q "listen 80" "$selected_site"; then
-        sudo sed -i '/listen /a\    listen 80;' "$selected_site"
+    # More precise SSL removal - only remove SSL-related lines and HTTPS server blocks
+    awk '
+    /server\s*{/ { in_server = 1; server_count++; ssl_block = 0 }
+    /listen\s+443/ { ssl_block = 1 }
+    /ssl_/ { if (in_server) next }
+    /listen\s+443/ { next }
+    /}/ { 
+        if (in_server) {
+            if (ssl_block && server_count > 1) {
+                # Skip entire SSL server block
+                ssl_block = 0
+                next
+            }
+            in_server = 0
+        }
+    }
+    !ssl_block || !in_server { print }
+    ' "$selected_site" > "$temp_config"
+    
+    # Ensure port 80 listener exists in the remaining server block
+    if ! grep -q "listen.*80" "$temp_config"; then
+        sed -i '/server_name/a\    listen 80;' "$temp_config"
     fi
+    
+    sudo cp "$temp_config" "$selected_site"
+    rm "$temp_config"
 fi
 
 # Test nginx config
+echo -e "${YELLOW}Testing nginx configuration...${NC}"
 sudo nginx -t
 if [ $? -ne 0 ]; then
     echo -e "${RED}Nginx config test failed! Restoring backup...${NC}"
@@ -115,7 +146,7 @@ read -p "Enter email for Let's Encrypt notifications: " email
 echo -e "${YELLOW}Running Certbot to obtain and configure SSL...${NC}"
 domain_args=""
 for domain in $domains; do
-    if [ "$domain" != "_" ] && [ "$domain" != "default_server" ]; then
+    if [ "$domain" != "_" ] && [ "$domain" != "default_server" ] && [[ "$domain" =~ ^[a-zA-Z0-9.-]+$ ]]; then
         domain_args="$domain_args -d $domain"
     fi
 done
@@ -126,7 +157,7 @@ if [ -z "$domain_args" ]; then
 fi
 
 echo "Running: certbot --nginx $domain_args --email $email --agree-tos --redirect --non-interactive"
-sudo certbot --nginx $domain_args --email $email --agree-tos --redirect --non-interactive
+sudo certbot --nginx $domain_args --email "$email" --agree-tos --redirect --non-interactive
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Successfully migrated to Certbot SSL!${NC}"
@@ -134,7 +165,7 @@ if [ $? -eq 0 ]; then
     # Show certificate info
     echo -e "${BLUE}New certificate info:${NC}"
     first_domain=$(echo $domains | awk '{print $1}')
-    certbot certificates -d "$first_domain" 2>/dev/null || echo "Certificate installed successfully"
+    sudo certbot certificates -d "$first_domain" 2>/dev/null || echo "Certificate installed successfully"
     
     # Setup auto-renewal if not already configured
     if ! crontab -l 2>/dev/null | grep -q "certbot renew"; then
