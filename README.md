@@ -63,6 +63,7 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 
 ### webserver
 - install-certbot.sh - Install Certbot and plugins
+- ssl-obtain-apply.sh - Obtain and apply SSL certificates (one-step process)
 - ssl-install.sh - Install SSL certificates with Certbot
 - ssl-renew.sh - Renew SSL certificates
 - ssl-add-domain.sh - Add domains to SSL certificates
