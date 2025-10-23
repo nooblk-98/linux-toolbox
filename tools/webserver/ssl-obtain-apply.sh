@@ -29,6 +29,50 @@ fi
 
 echo -e "${GREEN}Detected web server: $SERVER${NC}"
 
+# Check for invalid nginx configuration files
+if [ "$SERVER" = "nginx" ]; then
+    echo -e "${YELLOW}Checking nginx configuration...${NC}"
+    
+    # Find and disable invalid config files in sites-enabled
+    sites_enabled="/etc/nginx/sites-enabled"
+    invalid_files=()
+    
+    for file in "$sites_enabled"/*; do
+        if [ -f "$file" ]; then
+            # Check if file contains shell script content or other invalid directives
+            if grep -q "#!/bin/bash\|REPO_URL\|export\|echo -e" "$file" 2>/dev/null; then
+                invalid_files+=("$file")
+            fi
+        fi
+    done
+    
+    if [ ${#invalid_files[@]} -gt 0 ]; then
+        echo -e "${RED}Found invalid nginx configuration files:${NC}"
+        for file in "${invalid_files[@]}"; do
+            echo "  - $(basename "$file")"
+        done
+        
+        read -p "Remove these invalid files from sites-enabled? (y/n): " remove_invalid
+        if [[ "$remove_invalid" =~ ^[Yy]$ ]]; then
+            for file in "${invalid_files[@]}"; do
+                echo -e "${YELLOW}Removing: $(basename "$file")${NC}"
+                sudo rm -f "$file"
+            done
+        else
+            echo -e "${RED}Cannot proceed with invalid nginx configuration${NC}"
+            exit 1
+        fi
+    fi
+    
+    # Test nginx configuration
+    if ! sudo nginx -t; then
+        echo -e "${RED}Nginx configuration test failed. Please fix configuration issues first.${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✓ Nginx configuration is valid${NC}"
+fi
+
 # Get domains
 read -p "Enter your primary domain (e.g., example.com): " primary_domain
 read -p "Add www subdomain? (y/n): " add_www
@@ -112,6 +156,19 @@ esac
 # Run certbot
 echo -e "${YELLOW}Obtaining SSL certificate...${NC}"
 echo "Running: $certbot_cmd"
+
+# Pre-check: ensure nginx config is still valid before running certbot
+if [ "$SERVER" = "nginx" ] && [ "$method_choice" = "3" ]; then
+    if ! sudo nginx -t >/dev/null 2>&1; then
+        echo -e "${RED}Nginx configuration is invalid. Using webroot method instead...${NC}"
+        read -p "Enter webroot path (default: /var/www/html): " webroot_fallback
+        webroot_fallback=${webroot_fallback:-/var/www/html}
+        sudo mkdir -p "$webroot_fallback"
+        certbot_cmd="certbot certonly --webroot -w $webroot_fallback $domains --email $email --agree-tos --non-interactive"
+        method_choice="1"
+    fi
+fi
+
 sudo $certbot_cmd
 
 if [ $? -eq 0 ]; then
