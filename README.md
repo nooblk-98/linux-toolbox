@@ -70,6 +70,7 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 - migrate-to-certbot.sh - Migrate existing SSL to Certbot management
 - reverse-proxy.sh - Configure reverse proxy
 - wordpress-backup.sh - WordPress site backup with database dump
+- config-checker.sh - Check and fix web server configuration issues
 
 ### database
 - mariadb-phpmyadmin.sh - Install MariaDB 10 with phpMyAdmin
