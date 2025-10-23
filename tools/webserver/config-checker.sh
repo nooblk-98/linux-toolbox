@@ -72,18 +72,45 @@ sudo cp "$selected_site" "$backup_file"
 issues=()
 fixes=()
 
+# Extract domains from config
+domains=$(grep -E "^\s*server_name" "$selected_site" | head -1 | sed 's/^\s*server_name\s*//g' | sed 's/;\s*$//g')
+echo -e "${BLUE}Found domains:${NC} $domains"
+
 # Check for HTTP to HTTPS redirect
 if [ "$SERVER" = "nginx" ]; then
-    if ! grep -q "return 301 https" "$selected_site" && ! grep -q "rewrite.*https" "$selected_site"; then
-        issues+=("Missing HTTP to HTTPS redirect")
+    # Check if there's a separate HTTP server block with redirect
+    http_blocks=$(grep -c "listen.*80" "$selected_site")
+    https_blocks=$(grep -c "listen.*443" "$selected_site")
+    redirect_present=$(grep -c "return 301 https" "$selected_site")
+    
+    if [ "$https_blocks" -gt 0 ] && [ "$redirect_present" -eq 0 ]; then
+        # Has HTTPS but no HTTP redirect
+        issues+=("Missing HTTP to HTTPS redirect (HTTPS enabled but no redirect from HTTP)")
         fixes+=("http_redirect")
+    elif [ "$http_blocks" -gt 0 ] && [ "$https_blocks" -eq 0 ]; then
+        # Only HTTP, no HTTPS
+        issues+=("No HTTPS configuration found (HTTP only)")
+        fixes+=("enable_https")
     fi
     
-    # Check for www redirect
-    domains=$(grep -E "^\s*server_name" "$selected_site" | head -1 | sed 's/^\s*server_name\s*//g' | sed 's/;\s*$//g')
-    if [[ "$domains" =~ www\. ]] && ! grep -q "return 301.*www" "$selected_site"; then
-        issues+=("Missing non-www to www redirect")
-        fixes+=("www_redirect")
+    # Check for proper SSL redirect structure
+    if [ "$https_blocks" -gt 0 ]; then
+        # Check if HTTP block exists and has redirect
+        if ! grep -A 10 -B 2 "listen.*80" "$selected_site" | grep -q "return 301"; then
+            if [ "$redirect_present" -eq 0 ]; then
+                issues+=("HTTP server block exists but missing redirect to HTTPS")
+                fixes+=("fix_http_block")
+            fi
+        fi
+    fi
+    
+    # Check for www redirect (if www is in server_name but no redirect logic)
+    if [[ "$domains" =~ www\. ]]; then
+        non_www_domain=$(echo "$domains" | sed 's/www\.//g' | awk '{print $1}')
+        if ! grep -q "return 301.*www" "$selected_site" && ! grep -q "$non_www_domain" "$selected_site"; then
+            issues+=("Missing non-www to www redirect")
+            fixes+=("www_redirect")
+        fi
     fi
     
     # Check SSL configuration
@@ -96,17 +123,17 @@ if [ "$SERVER" = "nginx" ]; then
             issues+=("Missing SSL ciphers configuration")
             fixes+=("ssl_ciphers")
         fi
-    fi
-    
-    # Check security headers
-    if ! grep -q "add_header X-Frame-Options" "$selected_site"; then
-        issues+=("Missing security headers")
-        fixes+=("security_headers")
+        
+        # Check for security headers
+        if ! grep -q "add_header.*X-Frame-Options\|add_header.*Strict-Transport-Security" "$selected_site"; then
+            issues+=("Missing security headers (X-Frame-Options, HSTS, etc.)")
+            fixes+=("security_headers")
+        fi
     fi
     
 else
-    # Apache checks
-    if ! grep -q "RewriteRule.*https" "$selected_site" && ! grep -q "Redirect.*https" "$selected_site"; then
+    # Apache checks - similar logic
+    if ! grep -q "RewriteRule.*https\|Redirect.*https" "$selected_site" && grep -q "SSLEngine on" "$selected_site"; then
         issues+=("Missing HTTP to HTTPS redirect")
         fixes+=("http_redirect")
     fi
@@ -116,10 +143,18 @@ else
         fixes+=("ssl_protocols")
     fi
     
-    if ! grep -q "Header always set" "$selected_site"; then
+    if ! grep -q "Header always set" "$selected_site" && grep -q "SSLEngine on" "$selected_site"; then
         issues+=("Missing security headers")
         fixes+=("security_headers")
     fi
+fi
+
+# Check if site is actually serving HTTPS by testing server blocks
+if [ "$SERVER" = "nginx" ] && [ "$https_blocks" -gt 0 ]; then
+    # Show current server block structure for debugging
+    echo ""
+    echo -e "${YELLOW}Current server block structure:${NC}"
+    grep -n "server\|listen\|server_name\|return.*301" "$selected_site" | head -10
 fi
 
 # Display results
@@ -158,26 +193,34 @@ apply_fix() {
     local fix_type=$1
     
     case $fix_type in
-        "http_redirect")
+        "http_redirect"|"fix_http_block")
             if [ "$SERVER" = "nginx" ]; then
-                # Add HTTP redirect block
-                if ! grep -q "listen 80" "$selected_site"; then
-                    sudo sed -i '1i\
-server {\
-    listen 80;\
-    server_name '"$(echo $domains)"';\
-    return 301 https://$server_name$request_uri;\
-}\
-' "$selected_site"
-                fi
+                # Create a proper HTTP redirect block
+                primary_domain=$(echo $domains | awk '{print $1}')
+                redirect_block="
+server {
+    listen 80;
+    server_name $domains;
+    return 301 https://\$server_name\$request_uri;
+}
+"
+                # Add at the beginning of the file
+                echo "$redirect_block" | sudo tee /tmp/nginx_redirect.conf > /dev/null
+                sudo sed -i '1r /tmp/nginx_redirect.conf' "$selected_site"
+                sudo rm /tmp/nginx_redirect.conf
             else
-                # Apache redirect
+                # Apache redirect - existing code
                 sudo sed -i '/DocumentRoot/a\
     RewriteEngine On\
     RewriteCond %{HTTPS} off\
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]' "$selected_site"
             fi
             echo -e "${GREEN}✓ Added HTTP to HTTPS redirect${NC}"
+            ;;
+            
+        "enable_https")
+            echo -e "${YELLOW}HTTPS not configured. Please run certbot to obtain SSL certificate first.${NC}"
+            echo -e "${BLUE}Recommendation: Use 'certbot-obtain.sh' to get SSL certificate${NC}"
             ;;
             
         "www_redirect")
