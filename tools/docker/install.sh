@@ -90,10 +90,12 @@ case $PM in
                 # Amazon Linux 2
                 echo -e "${YELLOW}Installing Docker for Amazon Linux...${NC}"
                 sudo yum update -y
-                sudo yum install -y docker
-                # Install docker-compose from pip
+                sudo amazon-linux-extras install docker -y
+                
+                # Install docker-compose with version compatibility fix
                 sudo yum install -y python3-pip
-                sudo pip3 install docker-compose
+                # Install compatible urllib3 version for older OpenSSL
+                sudo pip3 install "urllib3<2.0" "docker-compose<1.30.0"
                 ;;
             "centos"|"rhel")
                 # CentOS/RHEL - existing logic
@@ -152,7 +154,11 @@ fi
 
 # Start and enable Docker service
 echo -e "${YELLOW}Starting Docker service...${NC}"
-if systemctl list-unit-files | grep -q docker.service; then
+if [ "$OS_ID" = "amazon" ]; then
+    # Amazon Linux uses different service management
+    sudo service docker start
+    sudo chkconfig docker on
+elif systemctl list-unit-files | grep -q docker.service; then
     sudo systemctl enable docker
     sudo systemctl start docker
 elif command -v service >/dev/null 2>&1; then
@@ -163,19 +169,31 @@ else
     echo -e "${RED}Could not start Docker service${NC}"
 fi
 
-# Special handling for Amazon Linux firewall
+# Special handling for Amazon Linux
 if [ "$OS_ID" = "amazon" ]; then
-    echo -e "${YELLOW}Configuring firewall for Amazon Linux...${NC}"
-    # Enable docker service to start on boot
-    sudo systemctl enable docker
-    # Make sure docker0 bridge is properly configured
-    sudo systemctl restart docker
+    echo -e "${YELLOW}Configuring Docker for Amazon Linux...${NC}"
+    # Ensure docker service is running
+    if ! sudo service docker status >/dev/null 2>&1; then
+        sudo service docker start
+    fi
+    # Add PATH for /usr/local/bin to user's bashrc
+    if ! grep -q '/usr/local/bin' ~/.bashrc; then
+        echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
+        echo -e "${YELLOW}Added /usr/local/bin to PATH in ~/.bashrc${NC}"
+    fi
 fi
 
 # Verify Docker is running
-if ! sudo docker version >/dev/null 2>&1; then
-    echo -e "${YELLOW}Docker service might not be running, attempting to start...${NC}"
-    sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null
+if [ "$OS_ID" = "amazon" ]; then
+    if ! sudo docker version >/dev/null 2>&1; then
+        echo -e "${YELLOW}Docker service might not be running, attempting to start...${NC}"
+        sudo service docker start
+    fi
+else
+    if ! sudo docker version >/dev/null 2>&1; then
+        echo -e "${YELLOW}Docker service might not be running, attempting to start...${NC}"
+        sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null
+    fi
 fi
 
 # Add current user to docker group
@@ -185,9 +203,19 @@ sudo usermod -aG docker $USER
 # Install Docker Compose (standalone) if not already installed via plugin
 if ! command -v docker-compose >/dev/null 2>&1 && ! docker compose version >/dev/null 2>&1; then
     echo -e "${YELLOW}Installing Docker Compose standalone...${NC}"
-    DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep tag_name | cut -d '"' -f 4)
-    sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
+    if [ "$OS_ID" = "amazon" ]; then
+        # Use older compatible version for Amazon Linux 2
+        DOCKER_COMPOSE_VERSION="1.29.2"
+        sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        # Create symlink in standard location
+        sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose 2>/dev/null
+    else
+        # Use latest version for other systems
+        DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep tag_name | cut -d '"' -f 4)
+        sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+    fi
 fi
 
 # Verify installation
@@ -200,10 +228,16 @@ if sudo docker version >/dev/null 2>&1; then
     echo -e "${GREEN}✓ Docker is working${NC}"
 else
     echo -e "${RED}✗ Docker installation may have issues${NC}"
-    echo -e "${YELLOW}Try: sudo systemctl status docker${NC}"
+    if [ "$OS_ID" = "amazon" ]; then
+        echo -e "${YELLOW}Try: sudo service docker status${NC}"
+    else
+        echo -e "${YELLOW}Try: sudo systemctl status docker${NC}"
+    fi
 fi
 
-if command -v docker-compose >/dev/null 2>&1; then
+if /usr/local/bin/docker-compose --version >/dev/null 2>&1; then
+    echo -e "${BLUE}Docker Compose version:${NC} $(/usr/local/bin/docker-compose --version)"
+elif command -v docker-compose >/dev/null 2>&1; then
     echo -e "${BLUE}Docker Compose version:${NC} $(docker-compose --version)"
 elif docker compose version >/dev/null 2>&1; then
     echo -e "${BLUE}Docker Compose (plugin) version:${NC} $(docker compose version)"
@@ -213,12 +247,12 @@ echo ""
 echo -e "${YELLOW}Important Notes:${NC}"
 echo "- You may need to log out and back in for group changes to take effect"
 echo "- Test with: sudo docker run hello-world (then try without sudo after re-login)"
-echo "- Use 'docker compose' (new) or 'docker-compose' (legacy)"
 if [ "$OS_ID" = "amazon" ]; then
-    echo "- Amazon Linux 2 uses system Docker package (not Docker CE)"
-fi
-if [ "$OS_VERSION" -ge 8 ] && [ "$PM" = "yum" ] && [ "$OS_ID" != "amazon" ]; then
-    echo "- For CentOS 8+, consider using Podman as an alternative to Docker"
+    echo "- Amazon Linux 2 uses amazon-linux-extras for Docker installation"
+    echo "- docker-compose is installed in /usr/local/bin (added to PATH)"
+    echo "- Use: source ~/.bashrc to reload PATH in current session"
+else
+    echo "- Use 'docker compose' (new) or 'docker-compose' (legacy)"
 fi
 
 read -p "Press Enter to continue..."
