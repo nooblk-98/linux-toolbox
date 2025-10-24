@@ -15,21 +15,39 @@ if command -v apt-get >/dev/null 2>&1; then
     OS_ID=$(lsb_release -is 2>/dev/null || echo "debian")
 elif command -v yum >/dev/null 2>&1; then
     PM="yum"
-    # Detect CentOS/RHEL version more accurately
-    if [ -f /etc/redhat-release ]; then
-        if grep -q "CentOS" /etc/redhat-release; then
+    # Detect Amazon Linux, CentOS/RHEL version more accurately
+    if [ -f /etc/os-release ]; then
+        source /etc/os-release
+        if [[ "$ID" == "amzn" ]]; then
+            OS_ID="amazon"
+            OS_VERSION="$VERSION_ID"
+        elif [[ "$ID" == "centos" ]]; then
             OS_ID="centos"
+            OS_VERSION=$(echo "$VERSION_ID" | cut -d. -f1)
+        elif [[ "$ID" == "rhel" ]]; then
+            OS_ID="rhel"
+            OS_VERSION=$(echo "$VERSION_ID" | cut -d. -f1)
+        elif [[ "$ID" == "rocky" ]]; then
+            OS_ID="centos"  # Rocky uses CentOS repos for Docker
+            OS_VERSION=$(echo "$VERSION_ID" | cut -d. -f1)
+        elif [[ "$ID" == "almalinux" ]]; then
+            OS_ID="centos"  # AlmaLinux uses CentOS repos for Docker
+            OS_VERSION=$(echo "$VERSION_ID" | cut -d. -f1)
+        fi
+    elif [ -f /etc/redhat-release ]; then
+        if grep -q "Amazon Linux" /etc/redhat-release; then
+            OS_ID="amazon"
+            OS_VERSION=$(grep -oE '[0-9]+' /etc/redhat-release | head -1)
+        elif grep -q "CentOS" /etc/redhat-release; then
+            OS_ID="centos"
+            OS_VERSION=$(grep -oE '[0-9]+' /etc/redhat-release | head -1)
         elif grep -q "Red Hat" /etc/redhat-release; then
             OS_ID="rhel"
-        elif grep -q "Rocky" /etc/redhat-release; then
-            OS_ID="centos"  # Rocky uses CentOS repos for Docker
-        elif grep -q "AlmaLinux" /etc/redhat-release; then
-            OS_ID="centos"  # AlmaLinux uses CentOS repos for Docker
+            OS_VERSION=$(grep -oE '[0-9]+' /etc/redhat-release | head -1)
         else
             OS_ID="centos"
+            OS_VERSION="7"
         fi
-        # Get major version
-        OS_VERSION=$(grep -oE '[0-9]+' /etc/redhat-release | head -1)
     else
         OS_ID="centos"
         OS_VERSION="7"
@@ -67,31 +85,48 @@ case $PM in
         sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
         ;;
     "yum")
-        # CentOS/RHEL - improved handling
-        if [ "$OS_VERSION" -ge 8 ]; then
-            # CentOS 8+ / RHEL 8+
-            sudo yum install -y yum-utils device-mapper-persistent-data lvm2
-            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-            
-            # For CentOS 8+, we might need to use podman-docker or install from EPEL
-            if ! sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
-                echo -e "${YELLOW}Official Docker repo failed, trying alternative installation...${NC}"
-                sudo yum install -y epel-release
-                sudo yum install -y docker docker-compose
-            fi
-        else
-            # CentOS 7 / RHEL 7
-            sudo yum install -y yum-utils device-mapper-persistent-data lvm2
-            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-            sudo yum install -y docker-ce docker-ce-cli containerd.io
-            
-            # Install docker-compose separately for CentOS 7
-            if ! command -v docker-compose >/dev/null 2>&1; then
-                sudo yum install -y epel-release
-                sudo yum install -y python-pip
-                sudo pip install docker-compose
-            fi
-        fi
+        case $OS_ID in
+            "amazon")
+                # Amazon Linux 2
+                echo -e "${YELLOW}Installing Docker for Amazon Linux...${NC}"
+                sudo yum update -y
+                sudo yum install -y docker
+                # Install docker-compose from pip
+                sudo yum install -y python3-pip
+                sudo pip3 install docker-compose
+                ;;
+            "centos"|"rhel")
+                # CentOS/RHEL - existing logic
+                if [ "$OS_VERSION" -ge 8 ]; then
+                    # CentOS 8+ / RHEL 8+
+                    sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+                    sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+                    
+                    # For CentOS 8+, we might need to use podman-docker or install from EPEL
+                    if ! sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
+                        echo -e "${YELLOW}Official Docker repo failed, trying alternative installation...${NC}"
+                        sudo yum install -y epel-release
+                        sudo yum install -y docker docker-compose
+                    fi
+                else
+                    # CentOS 7 / RHEL 7
+                    sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+                    sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+                    sudo yum install -y docker-ce docker-ce-cli containerd.io
+                    
+                    # Install docker-compose separately for CentOS 7
+                    if ! command -v docker-compose >/dev/null 2>&1; then
+                        sudo yum install -y epel-release
+                        sudo yum install -y python-pip
+                        sudo pip install docker-compose
+                    fi
+                fi
+                ;;
+            *)
+                echo -e "${RED}Unsupported OS: $OS_ID${NC}"
+                exit 1
+                ;;
+        esac
         ;;
     "dnf")
         # Fedora
@@ -126,6 +161,15 @@ elif command -v service >/dev/null 2>&1; then
     sudo chkconfig docker on 2>/dev/null || true
 else
     echo -e "${RED}Could not start Docker service${NC}"
+fi
+
+# Special handling for Amazon Linux firewall
+if [ "$OS_ID" = "amazon" ]; then
+    echo -e "${YELLOW}Configuring firewall for Amazon Linux...${NC}"
+    # Enable docker service to start on boot
+    sudo systemctl enable docker
+    # Make sure docker0 bridge is properly configured
+    sudo systemctl restart docker
 fi
 
 # Verify Docker is running
@@ -170,7 +214,10 @@ echo -e "${YELLOW}Important Notes:${NC}"
 echo "- You may need to log out and back in for group changes to take effect"
 echo "- Test with: sudo docker run hello-world (then try without sudo after re-login)"
 echo "- Use 'docker compose' (new) or 'docker-compose' (legacy)"
-if [ "$OS_VERSION" -ge 8 ] && [ "$PM" = "yum" ]; then
+if [ "$OS_ID" = "amazon" ]; then
+    echo "- Amazon Linux 2 uses system Docker package (not Docker CE)"
+fi
+if [ "$OS_VERSION" -ge 8 ] && [ "$PM" = "yum" ] && [ "$OS_ID" != "amazon" ]; then
     echo "- For CentOS 8+, consider using Podman as an alternative to Docker"
 fi
 
