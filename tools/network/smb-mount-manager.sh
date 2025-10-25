@@ -200,11 +200,23 @@ mount_permanent() {
 # Function to remove mount
 remove_mount() {
     local mount_point="$1"
+    local force_mode="$2"
     
     # Unmount if currently mounted
     if mountpoint -q "$mount_point"; then
         print_status "Unmounting $mount_point"
-        umount "$mount_point"
+        if [[ "$force_mode" == "force" ]]; then
+            # Force unmount with multiple attempts
+            if ! umount "$mount_point" 2>/dev/null; then
+                print_warning "Normal unmount failed, trying lazy unmount..."
+                if ! umount -l "$mount_point" 2>/dev/null; then
+                    print_warning "Lazy unmount failed, trying force unmount..."
+                    umount -f "$mount_point" 2>/dev/null || print_error "Force unmount failed for $mount_point"
+                fi
+            fi
+        else
+            umount "$mount_point"
+        fi
     fi
     
     # Remove from fstab
@@ -243,6 +255,96 @@ remove_mount() {
     print_status "Mount removed successfully"
 }
 
+# Function to force remove all SMB mounts
+force_remove_all_mounts() {
+    print_status "Force removing all SMB/CIFS mounts..."
+    echo ""
+    
+    # Get all current CIFS mounts
+    local cifs_mounts=$(mount | grep "type cifs" | awk '{print $3}')
+    
+    if [[ -z "$cifs_mounts" ]]; then
+        print_status "No CIFS mounts found"
+        return 0
+    fi
+    
+    print_status "Found the following CIFS mounts:"
+    echo "$cifs_mounts"
+    echo ""
+    
+    read -p "Are you sure you want to force remove ALL SMB/CIFS mounts? [y/N]: " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        print_status "Operation cancelled"
+        return 0
+    fi
+    
+    # Kill processes using any CIFS mounts
+    print_status "Killing processes using CIFS mounts..."
+    echo "$cifs_mounts" | while read -r mount_point; do
+        if [[ -n "$mount_point" ]]; then
+            print_status "Killing processes using $mount_point"
+            fuser -km "$mount_point" 2>/dev/null || true
+        fi
+    done
+    
+    # Wait a moment for processes to terminate
+    sleep 2
+    
+    # Force unmount all CIFS mounts
+    echo "$cifs_mounts" | while read -r mount_point; do
+        if [[ -n "$mount_point" ]]; then
+            print_status "Force unmounting $mount_point"
+            
+            # Try multiple unmount methods
+            if ! umount "$mount_point" 2>/dev/null; then
+                print_warning "Normal unmount failed for $mount_point, trying lazy unmount..."
+                if ! umount -l "$mount_point" 2>/dev/null; then
+                    print_warning "Lazy unmount failed for $mount_point, trying force unmount..."
+                    umount -f "$mount_point" 2>/dev/null || print_error "All unmount methods failed for $mount_point"
+                fi
+            fi
+        fi
+    done
+    
+    # Clean up fstab entries
+    print_status "Cleaning up fstab entries..."
+    if grep -q "cifs" "$FSTAB_FILE"; then
+        # Create backup
+        cp "$FSTAB_FILE" "$FSTAB_FILE.backup.$(date +%Y%m%d_%H%M%S)"
+        
+        # Remove all CIFS entries and their comments
+        sed -i '/# SMB Mount:/,+1d' "$FSTAB_FILE"
+        grep -v "cifs" "$FSTAB_FILE" > /tmp/fstab.tmp && mv /tmp/fstab.tmp "$FSTAB_FILE"
+        
+        print_status "Removed CIFS entries from fstab"
+    fi
+    
+    # Clean up credential files
+    print_status "Cleaning up credential files..."
+    if [[ -d "$CREDENTIALS_DIR" ]]; then
+        find "$CREDENTIALS_DIR" -name "*.cred" -delete 2>/dev/null || true
+        print_status "Removed credential files"
+    fi
+    
+    # Clean up empty mount directories
+    print_status "Cleaning up empty mount directories..."
+    if [[ -d "$MOUNT_BASE_DIR" ]]; then
+        find "$MOUNT_BASE_DIR" -type d -empty -delete 2>/dev/null || true
+        print_status "Removed empty mount directories"
+    fi
+    
+    # Verify removal
+    local remaining_mounts=$(mount | grep "type cifs" | wc -l)
+    if [[ "$remaining_mounts" -eq 0 ]]; then
+        print_status "All SMB/CIFS mounts successfully removed"
+    else
+        print_warning "Some mounts may still be active:"
+        mount | grep "type cifs"
+        echo ""
+        print_status "You may need to reboot the system to fully clear remaining mounts"
+    fi
+}
+
 # Function to list current SMB mounts
 list_mounts() {
     print_status "Current SMB/CIFS mounts:"
@@ -267,17 +369,19 @@ show_usage() {
 Usage: $0 [OPTION]
 
 SMB/CIFS Mount Manager Options:
-  temp-mount    Mount SMB share temporarily
-  perm-mount    Add permanent SMB mount (auto-mount on boot)
-  remove        Remove SMB mount
-  list          List current SMB mounts
-  install-deps  Install required dependencies
-  help          Show this help message
+  temp-mount       Mount SMB share temporarily
+  perm-mount       Add permanent SMB mount (auto-mount on boot)
+  remove           Remove SMB mount
+  force-remove-all Force remove ALL SMB mounts (kills processes, force unmount)
+  list             List current SMB mounts
+  install-deps     Install required dependencies
+  help             Show this help message
 
 Examples:
   $0 temp-mount
   $0 perm-mount
   $0 remove
+  $0 force-remove-all
   $0 list
 
 EOF
@@ -351,10 +455,32 @@ interactive_remove_mount() {
     
     read -p "Are you sure you want to remove mount $mount_point? [y/N]: " confirm
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        remove_mount "$mount_point"
+        remove_mount "$mount_point" "normal"
     else
         print_status "Operation cancelled"
     fi
+}
+
+# Function for force remove all mounts
+interactive_force_remove_all() {
+    echo ""
+    print_status "Force Remove ALL SMB/CIFS Mounts"
+    echo ""
+    
+    # Show current mounts first
+    list_mounts
+    echo ""
+    
+    print_warning "This will forcefully remove ALL SMB/CIFS mounts!"
+    print_warning "This includes:"
+    echo "  - Killing processes using the mounts"
+    echo "  - Force unmounting all CIFS shares"
+    echo "  - Removing all fstab entries"
+    echo "  - Deleting all credential files"
+    echo "  - Cleaning up mount directories"
+    echo ""
+    
+    force_remove_all_mounts
 }
 
 # Main menu
@@ -366,11 +492,12 @@ main_menu() {
         echo "1) Mount SMB share temporarily"
         echo "2) Add permanent SMB mount"
         echo "3) Remove SMB mount"
-        echo "4) List current mounts"
-        echo "5) Install dependencies"
-        echo "6) Exit"
+        echo "4) Force remove ALL SMB mounts"
+        echo "5) List current mounts"
+        echo "6) Install dependencies"
+        echo "7) Exit"
         echo ""
-        read -p "Enter your choice [1-6]: " choice
+        read -p "Enter your choice [1-7]: " choice
         
         case $choice in
             1)
@@ -383,12 +510,15 @@ main_menu() {
                 interactive_remove_mount
                 ;;
             4)
-                list_mounts
+                interactive_force_remove_all
                 ;;
             5)
-                install_dependencies
+                list_mounts
                 ;;
             6)
+                install_dependencies
+                ;;
+            7)
                 print_status "Goodbye!"
                 exit 0
                 ;;
@@ -416,6 +546,10 @@ main() {
         "remove")
             check_root
             interactive_remove_mount
+            ;;
+        "force-remove-all")
+            check_root
+            interactive_force_remove_all
             ;;
         "list")
             list_mounts
