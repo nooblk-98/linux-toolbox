@@ -203,39 +203,67 @@ EOF
     systemctl enable github-runners-startup.service
 }
 
-# Add a new runner (now supports --url and --token only)
-add_runner() {
-    local repo_owner="$1"
-    local repo_name="$2"
-    local runner_name="$3"
-    local token="$4"
-    local url_arg="$5"
-    local token_arg="$6"
+# helper: parse owner/repo or full url into owner and repo
+parse_repo_input() {
+    local input="$1"
+    REPO_OWNER=""
+    REPO_NAME=""
+    # trim
+    input="$(echo "$input" | xargs)"
+    if [[ "$input" =~ ^https?:// ]]; then
+        # URL like https://github.com/owner/repo or https://github.com/owner
+        # remove trailing slash
+        input="${input%/}"
+        # extract path part
+        path="${input#*github.com/}"
+        REPO_OWNER="$(echo "$path" | cut -d'/' -f1)"
+        REPO_NAME="$(echo "$path" | cut -d'/' -f2)"
+    elif [[ "$input" =~ / ]]; then
+        REPO_OWNER="$(echo "$input" | cut -d'/' -f1)"
+        REPO_NAME="$(echo "$input" | cut -d'/' -f2)"
+    else
+        REPO_OWNER="$input"
+        REPO_NAME=""
+    fi
+}
 
-    # If called with --url and --token only
-    if [[ "$repo_owner" == "--url" && "$repo_name" =~ ^https://github.com/ ]]; then
-        local repo_url="$repo_name"
-        local token_val="$3"
-        # Parse --token
-        if [[ "$token" == "--token" && -n "$token_arg" ]]; then
-            token_val="$token_arg"
-        fi
-        # Extract owner and repo from URL
-        local repo_path=$(echo "$repo_url" | sed -E 's#https://github.com/([^/]+)/?([^/]*)#\1 \2#')
-        repo_owner=$(echo "$repo_path" | awk '{print $1}')
-        repo_name=$(echo "$repo_path" | awk '{print $2}')
-        if [[ -z "$repo_name" ]]; then
-            # Org runner (no repo), use org as repo_name
-            repo_name="$repo_owner"
+# Add a new runner (improved input handling)
+add_runner() {
+    local a1="$1"; local a2="$2"; local a3="$3"; local a4="$4"; local a5="$5"; local a6="$6"
+    local repo_owner repo_name runner_name token
+
+    # CLI: add --url <url> --token <token>  OR add <owner> <repo> <name> <token>
+    if [[ "$a1" == "--url" ]]; then
+        parse_repo_input "$a2"
+        token="$a3"
+        # support form: add --url <url> --token <token>
+        if [[ "$a3" == "--token" && -n "$a4" ]]; then
+            token="$a4"
         fi
         runner_name="runner-$(date +%s)"
-        token="$token_val"
+        repo_owner="$REPO_OWNER"
+        repo_name="$REPO_NAME"
+    else
+        # normal form: owner repo name token
+        repo_owner="$a1"; repo_name="$a2"; runner_name="$a3"; token="$a4"
     fi
 
-    if [[ -z "$repo_owner" || -z "$repo_name" || -z "$runner_name" || -z "$token" ]]; then
-        error "Usage: $0 add <repo_owner> <repo_name> <runner_name> <registration_token>"
+    # if interactive call passed URL in a1 (not using --url flag)
+    if [[ -z "$repo_name" && "$repo_owner" =~ ^https?:// ]]; then
+        parse_repo_input "$repo_owner"
+        repo_owner="$REPO_OWNER"
+        repo_name="$REPO_NAME"
+    fi
+
+    if [[ -z "$repo_owner" || -z "$repo_name" || -z "$token" ]]; then
+        error "Usage: $0 add <owner> <repo> <name> <registration_token>"
         error "Or:   $0 add --url <repo/org url> --token <registration_token>"
         return 1
+    fi
+
+    # auto-generate runner_name if empty
+    if [[ -z "$runner_name" ]]; then
+        runner_name="runner-$(date +%s)"
     fi
 
     local runner_id="${repo_owner}-${repo_name}-${runner_name}"
@@ -290,28 +318,26 @@ add_runner() {
     log "Runner $runner_id added and started successfully"
 }
 
-# Interactive add runner
+# Interactive add runner (accept owner/repo OR full URL)
 interactive_add() {
     echo "=== Add GitHub Actions Runner ==="
     echo
-    
-    read -p "GitHub Repository Owner: " repo_owner
-    read -p "GitHub Repository Name: " repo_name
-    read -p "Runner Name (e.g., server-01): " runner_name
-    
-    echo
-    echo "To get a registration token:"
-    echo "1. Go to https://github.com/$repo_owner/$repo_name/settings/actions/runners"
-    echo "2. Click 'New self-hosted runner'"
-    echo "3. Copy the token from the configuration command"
-    echo
-    
+    read -p "GitHub repository (owner/repo or URL): " repo_input
+    parse_repo_input "$repo_input"
+    # if repo name not provided, ask for it
+    if [[ -z "$REPO_NAME" ]]; then
+        read -p "GitHub Repository Name (leave blank to use owner as repo/org): " REPO_NAME
+        if [[ -z "$REPO_NAME" ]]; then
+            REPO_NAME="$REPO_OWNER"
+        fi
+    fi
+    read -p "Runner Name (leave blank to auto-generate): " runner_name
     read -p "Registration Token: " token
-    
-    echo
-    info "Adding runner: $repo_owner/$repo_name ($runner_name)"
-    
-    add_runner "$repo_owner" "$repo_name" "$runner_name" "$token"
+    if [[ -z "$runner_name" ]]; then
+        runner_name="runner-$(date +%s)"
+    fi
+    info "Adding runner: $REPO_OWNER/$REPO_NAME ($runner_name)"
+    add_runner "$REPO_OWNER" "$REPO_NAME" "$runner_name" "$token"
 }
 
 # Remove a runner
@@ -710,16 +736,11 @@ main() {
             ;;
         add)
             check_root
-            if [[ $# -eq 5 ]]; then
+            # support: add --url <url> --token <token>
+            if [[ "$2" == "--url" ]]; then
+                add_runner "$2" "$3" "$4" "$5" "$6"
+            elif [[ $# -eq 5 ]]; then
                 add_runner "$2" "$3" "$4" "$5"
-            elif [[ $# -eq 5 && "$2" == "--url" && "$4" == "--token" ]]; then
-                add_runner "$2" "$3" "$4" "$5"
-            elif [[ $# -eq 4 && "$2" == "--url" && "$4" == "--token" ]]; then
-                add_runner "$2" "$3" "$4"
-            elif [[ $# -eq 3 && "$2" == "--url" ]]; then
-                # $3 is the URL, prompt for token
-                read -p "Enter registration token: " token
-                add_runner "$2" "$3" "--token" "$token"
             else
                 interactive_add
             fi
