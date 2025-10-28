@@ -203,21 +203,44 @@ EOF
     systemctl enable github-runners-startup.service
 }
 
-# Add a new runner
+# Add a new runner (now supports --url and --token only)
 add_runner() {
     local repo_owner="$1"
     local repo_name="$2"
     local runner_name="$3"
     local token="$4"
-    
+    local url_arg="$5"
+    local token_arg="$6"
+
+    # If called with --url and --token only
+    if [[ "$repo_owner" == "--url" && "$repo_name" =~ ^https://github.com/ ]]; then
+        local repo_url="$repo_name"
+        local token_val="$3"
+        # Parse --token
+        if [[ "$token" == "--token" && -n "$token_arg" ]]; then
+            token_val="$token_arg"
+        fi
+        # Extract owner and repo from URL
+        local repo_path=$(echo "$repo_url" | sed -E 's#https://github.com/([^/]+)/?([^/]*)#\1 \2#')
+        repo_owner=$(echo "$repo_path" | awk '{print $1}')
+        repo_name=$(echo "$repo_path" | awk '{print $2}')
+        if [[ -z "$repo_name" ]]; then
+            # Org runner (no repo), use org as repo_name
+            repo_name="$repo_owner"
+        fi
+        runner_name="runner-$(date +%s)"
+        token="$token_val"
+    fi
+
     if [[ -z "$repo_owner" || -z "$repo_name" || -z "$runner_name" || -z "$token" ]]; then
         error "Usage: $0 add <repo_owner> <repo_name> <runner_name> <registration_token>"
+        error "Or:   $0 add --url <repo/org url> --token <registration_token>"
         return 1
     fi
-    
+
     local runner_id="${repo_owner}-${repo_name}-${runner_name}"
     local runner_dir="$RUNNERS_BASE_DIR/$runner_id"
-    
+
     # Check if runner already exists
     if [[ -d "$runner_dir" ]]; then
         error "Runner $runner_id already exists"
@@ -689,6 +712,14 @@ main() {
             check_root
             if [[ $# -eq 5 ]]; then
                 add_runner "$2" "$3" "$4" "$5"
+            elif [[ $# -eq 5 && "$2" == "--url" && "$4" == "--token" ]]; then
+                add_runner "$2" "$3" "$4" "$5"
+            elif [[ $# -eq 4 && "$2" == "--url" && "$4" == "--token" ]]; then
+                add_runner "$2" "$3" "$4"
+            elif [[ $# -eq 3 && "$2" == "--url" ]]; then
+                # $3 is the URL, prompt for token
+                read -p "Enter registration token: " token
+                add_runner "$2" "$3" "--token" "$token"
             else
                 interactive_add
             fi
