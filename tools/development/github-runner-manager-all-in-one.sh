@@ -9,7 +9,7 @@
 RUNNERS_BASE_DIR="/opt/actions-runners"
 SERVICES_DIR="/etc/systemd/system"
 CONFIG_FILE="/etc/github-runners.conf"
-RUNNER_VERSION="2.311.0"  # Update this to the latest version
+RUNNER_VERSION="2.329.0"  # updated to a newer runner version
 RUNNER_USER="github-runner"
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 
@@ -218,6 +218,10 @@ parse_repo_input() {
         path="${input#*github.com/}"
         REPO_OWNER="$(echo "$path" | cut -d'/' -f1)"
         REPO_NAME="$(echo "$path" | cut -d'/' -f2)"
+        # if there's no second part REPO_NAME will be empty -> org-level URL
+        if [[ "$REPO_NAME" == "$REPO_OWNER" ]]; then
+            REPO_NAME=""
+        fi
     elif [[ "$input" =~ / ]]; then
         REPO_OWNER="$(echo "$input" | cut -d'/' -f1)"
         REPO_NAME="$(echo "$input" | cut -d'/' -f2)"
@@ -230,15 +234,16 @@ parse_repo_input() {
 # Add a new runner (improved input handling)
 add_runner() {
     local a1="$1"; local a2="$2"; local a3="$3"; local a4="$4"; local a5="$5"; local a6="$6"
-    local repo_owner repo_name runner_name token
+    local repo_owner repo_name runner_name token target_url repo_path_for_config
 
     # CLI: add --url <url> --token <token>  OR add <owner> <repo> <name> <token>
     if [[ "$a1" == "--url" ]]; then
         parse_repo_input "$a2"
-        token="$a3"
-        # support form: add --url <url> --token <token>
+        # support form: add --url <url> --token <token>   OR add --url <url> <token>
         if [[ "$a3" == "--token" && -n "$a4" ]]; then
             token="$a4"
+        else
+            token="$a3"
         fi
         runner_name="runner-$(date +%s)"
         repo_owner="$REPO_OWNER"
@@ -255,7 +260,17 @@ add_runner() {
         repo_name="$REPO_NAME"
     fi
 
-    if [[ -z "$repo_owner" || -z "$repo_name" || -z "$token" ]]; then
+    # Build proper target URL and repo_path_for_config (org vs repo)
+    if [[ -z "$repo_name" ]]; then
+        # Org or owner-level runner
+        target_url="https://github.com/$repo_owner"
+        repo_path_for_config="$repo_owner"
+    else
+        target_url="https://github.com/$repo_owner/$repo_name"
+        repo_path_for_config="$repo_owner/$repo_name"
+    fi
+
+    if [[ -z "$repo_owner" || -z "$token" ]]; then
         error "Usage: $0 add <owner> <repo> <name> <registration_token>"
         error "Or:   $0 add --url <repo/org url> --token <registration_token>"
         return 1
@@ -266,7 +281,9 @@ add_runner() {
         runner_name="runner-$(date +%s)"
     fi
 
-    local runner_id="${repo_owner}-${repo_name}-${runner_name}"
+    # generate safe runner id (replace '/' with '-' and use 'org' when no repo)
+    local safe_repo="${repo_path_for_config//\//-}"
+    local runner_id="${safe_repo}-${runner_name}"
     local runner_dir="$RUNNERS_BASE_DIR/$runner_id"
 
     # Check if runner already exists
@@ -275,7 +292,7 @@ add_runner() {
         return 1
     fi
     
-    log "Adding runner: $runner_id"
+    log "Adding runner: $runner_id (target: $target_url)"
     
     # Create runner directory
     mkdir -p "$runner_dir"
@@ -286,12 +303,12 @@ add_runner() {
         return 1
     fi
     
-    # Configure the runner
+    # Configure the runner (use the appropriate URL for org or repo)
     log "Configuring runner..."
     cd "$runner_dir"
     
     sudo -u $RUNNER_USER ./config.sh \
-        --url "https://github.com/$repo_owner/$repo_name" \
+        --url "$target_url" \
         --token "$token" \
         --name "$runner_name" \
         --labels "self-hosted,linux,x64" \
@@ -308,8 +325,8 @@ add_runner() {
     # Create systemd service
     create_service "$runner_id" "$runner_dir"
     
-    # Add to config file
-    echo "$runner_id:$repo_owner/$repo_name:$runner_name:$(date)" >> "$CONFIG_FILE"
+    # Add to config file (record repo_path_for_config so org or repo recorded properly)
+    echo "$runner_id:$repo_path_for_config:$runner_name:$(date)" >> "$CONFIG_FILE"
     
     # Start the service
     systemctl enable "github-runner-$runner_id.service"
