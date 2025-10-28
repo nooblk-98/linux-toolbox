@@ -761,5 +761,104 @@ main() {
     esac
 }
 
-# Run main function with all arguments
-main "$@"
+# Menu for interactive runner management
+main_menu() {
+    while true; do
+        clear
+        echo -e "${BLUE}GitHub Actions Runner Manager${NC}"
+        echo "======================================"
+        echo -e "${GREEN}1.${NC} Install/Init System"
+        echo -e "${GREEN}2.${NC} Add Runner"
+        echo -e "${GREEN}3.${NC} Remove Runner"
+        echo -e "${GREEN}4.${NC} List Runners"
+        echo -e "${GREEN}5.${NC} Start Runner(s)"
+        echo -e "${GREEN}6.${NC} Stop Runner(s)"
+        echo -e "${GREEN}7.${NC} Restart Runner(s)"
+        echo -e "${GREEN}8.${NC} Status"
+        echo -e "${GREEN}9.${NC} Monitor"
+        echo -e "${GREEN}10.${NC} Show Logs"
+        echo -e "${GREEN}0.${NC} Exit"
+        echo ""
+        read -p "Select an option [0-10]: " choice
+
+        case "$choice" in
+            1)
+                install_system
+                ;;
+            2)
+                check_root
+                interactive_add
+                ;;
+            3)
+                check_root
+                interactive_remove
+                ;;
+            4)
+                list_runners
+                read -p "Press Enter to continue..."
+                ;;
+            5)
+                check_root
+                echo "Leave blank to start all, or enter Runner ID:"
+                read -p "Runner ID: " rid
+                if [[ -n "$rid" ]]; then
+                    systemctl start "github-runner-$rid.service"
+                else
+                    start_all_runners
+                fi
+                read -p "Press Enter to continue..."
+                ;;
+            6)
+                check_root
+                echo "Leave blank to stop all, or enter Runner ID:"
+                read -p "Runner ID: " rid
+                if [[ -n "$rid" ]]; then
+                    systemctl stop "github-runner-$rid.service"
+                else
+                    stop_all_runners
+                fi
+                read -p "Press Enter to continue..."
+                ;;
+            7)
+                check_root
+                echo "Leave blank to restart all, or enter Runner ID:"
+                read -p "Runner ID: " rid
+                if [[ -n "$rid" ]]; then
+                    systemctl restart "github-runner-$rid.service"
+                else
+                    stop_all_runners
+                    sleep 2
+                    start_all_runners
+                fi
+                read -p "Press Enter to continue..."
+                ;;
+            8)
+                show_status
+                read -p "Press Enter to continue..."
+                ;;
+            9)
+                monitor_runners
+                ;;
+            10)
+                echo "Enter Runner ID (leave blank to list):"
+                read -p "Runner ID: " rid
+                show_runner_logs "$rid"
+                ;;
+            0)
+                echo "Goodbye!"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}Invalid option!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# If no arguments, show menu; else, use CLI mode
+if [[ $# -eq 0 ]]; then
+    main_menu
+else
+    main "$@"
+fi
