@@ -337,24 +337,21 @@ add_runner() {
 
 # Interactive add runner (accept owner/repo OR full URL)
 interactive_add() {
-    echo "=== Add GitHub Actions Runner ==="
+    echo "=== Add GitHub Actions Runner (URL + TOKEN only) ==="
     echo
-    read -p "GitHub repository (owner/repo or URL): " repo_input
-    parse_repo_input "$repo_input"
-    # if repo name not provided, ask for it
-    if [[ -z "$REPO_NAME" ]]; then
-        read -p "GitHub Repository Name (leave blank to use owner as repo/org): " REPO_NAME
-        if [[ -z "$REPO_NAME" ]]; then
-            REPO_NAME="$REPO_OWNER"
-        fi
+    # Ask only for the two values GitHub provides in the config command
+    read -p "Enter GitHub URL (e.g. https://github.com/NoobLk or https://github.com/owner/repo): " repo_input
+    read -p "Enter registration token (the --token value): " token
+
+    # Basic validation
+    if [[ -z "$repo_input" || -z "$token" ]]; then
+        error "Both URL and token are required."
+        return 1
     fi
-    read -p "Runner Name (leave blank to auto-generate): " runner_name
-    read -p "Registration Token: " token
-    if [[ -z "$runner_name" ]]; then
-        runner_name="runner-$(date +%s)"
-    fi
-    info "Adding runner: $REPO_OWNER/$REPO_NAME ($runner_name)"
-    add_runner "$REPO_OWNER" "$REPO_NAME" "$runner_name" "$token"
+
+    info "Adding runner for: $repo_input (token provided)"
+    # Use add_runner in --url <url> <token> form
+    add_runner --url "$repo_input" --token "$token"
 }
 
 # Remove a runner
