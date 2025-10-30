@@ -133,8 +133,8 @@ download_runner() {
     
     cd "$runner_dir"
     
-    # Download the runner
-    wget -q "https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz"
+    # Download the runner (removed -q to show progress)
+    wget "https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz"
     
     if [[ $? -ne 0 ]]; then
         error "Failed to download runner"
