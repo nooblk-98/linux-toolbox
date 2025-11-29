@@ -1,5 +1,5 @@
 #!/bin/bash
-# filepath: d:\github\linux-toolbox\run.sh
+# filepath: f:\linux-toolbox\run.sh
 
 REPO_URL="https://github.com/nooblk-98/linux-toolbox.git"
 REPO_DIR="/tmp/linux-toolbox"
@@ -66,6 +66,26 @@ print_status() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Get display name for category with emoji
+get_category_display_name() {
+    local category="$1"
+    case "$category" in
+        "automation") echo "🤖 Automation" ;;
+        "backup-recovery") echo "💾 Backup & Recovery" ;;
+        "cicd") echo "🔄 CI/CD" ;;
+        "containers") echo "🐳 Containers" ;;
+        "core-system") echo "🖥️  Core System" ;;
+        "database") echo "🗄️  Database" ;;
+        "development") echo "💻 Development" ;;
+        "kubernetes") echo "☸️  Kubernetes" ;;
+        "networking") echo "🌐 Networking" ;;
+        "observability") echo "📊 Observability" ;;
+        "security") echo "🔒 Security" ;;
+        "webserver") echo "🌍 Web Server" ;;
+        *) echo "$category" ;;
+    esac
 }
 
 # Discover categories (subfolders with .sh files)
@@ -139,11 +159,12 @@ show_category_menu() {
     local i=1
     local categories=($(discover_categories))
     for cat in "${categories[@]}"; do
-        echo -e "${CYAN}$i.${NC} ${YELLOW}$cat${NC}"
+        local display_name=$(get_category_display_name "$cat")
+        echo -e "${CYAN}$i.${NC} ${display_name}"
         ((i++))
     done
-    echo -e "${MAGENTA}$i.${NC} Update from Repo"
-    echo -e "${RED}0.${NC} Exit"
+    echo -e "${MAGENTA}$i.${NC} 🔄 Update from Repo"
+    echo -e "${RED}0.${NC} ❌ Exit"
     echo ""
     echo -e "${MAGENTA}Select a category [0-$i]:${NC} "
     echo ""
@@ -154,7 +175,8 @@ show_category_menu() {
 show_tool_menu() {
     show_system_info
     local category="$1"
-    print_header "🛠️ Category: $category"
+    local display_name=$(get_category_display_name "$category")
+    print_header "🛠️  $display_name Tools"
     echo "--------------------------------"
     local i=1
     local tools=($(discover_tools_in_category "$category"))
@@ -163,7 +185,7 @@ show_tool_menu() {
         echo -e "${CYAN}$i.${NC} ${GREEN}$tool_name${NC}"
         ((i++))
     done
-    echo -e "${RED}0.${NC} Back"
+    echo -e "${RED}0.${NC} ⬅️  Back"
     echo ""
     echo -e "${MAGENTA}Select a tool to run [0-$(($i-1))]:${NC} "
 }

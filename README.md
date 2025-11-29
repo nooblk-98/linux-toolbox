@@ -2,15 +2,15 @@
 
 # 🐧 Linux Toolbox
 
-### *A Comprehensive Collection of Linux Server Management Scripts*
+### *A Comprehensive Collection of Linux Server Management Scripts for DevOps*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bash](https://img.shields.io/badge/Made%20with-Bash-1f425f.svg)](https://www.gnu.org/software/bash/)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/nooblk-98/linux-toolbox/graphs/commit-activity)
 
-*Simplify your Linux server administration with interactive, user-friendly scripts*
+*Simplify your Linux server administration with 143+ interactive, user-friendly scripts*
 
-[Quick Start](#-quick-start) • [Features](#-features) • [Tools](#-tools-overview) • [Documentation](#-documentation)
+[Quick Start](#-quick-start) • [Features](#-features) • [Categories](#-script-categories) • [Documentation](#-documentation)
 
 </div>
 
@@ -27,8 +27,9 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 **What happens?**
 - 📥 Automatically clones/updates the latest version
 - 🖥️ Shows real-time system resource monitoring
-- 📋 Interactive menu with all available tools
-- ✨ Color-coded, user-friendly interface
+- 📋 Interactive menu with 12 organized categories
+- ✨ Color-coded, emoji-enhanced interface
+- 🎯 143+ DevOps-focused scripts
 
 ---
 
@@ -39,7 +40,7 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 <td width="50%">
 
 ### 🎯 **User-Friendly**
-- Interactive menus with color-coded output
+- Interactive menus with emoji indicators
 - Real-time system resource monitoring
 - Step-by-step guided configurations
 - Input validation and error handling
@@ -63,15 +64,17 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 - Fail2ban automatic setup
 - Firewall management (UFW)
 - SSL/TLS certificate automation
+- Security auditing tools
 
 </td>
 <td width="50%">
 
 ### 🛠️ **Comprehensive Coverage**
-- System administration tools
-- Web server management
-- Development environment setup
-- Database installation & management
+- 12 organized categories
+- 143+ scripts and growing
+- Kubernetes & container orchestration
+- CI/CD pipeline tools
+- Full observability stack
 
 </td>
 </tr>
@@ -79,87 +82,235 @@ rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linu
 
 ---
 
-## 📦 Tools Overview
+## 📦 Script Categories
 
-### 🖥️ **System Administration**
+### 🖥️ **Core System** (10 scripts)
+Essential system administration and maintenance tools.
 
-| Script | Description | Key Features |
-|--------|-------------|--------------|
-| `timezone.sh` | Configure system timezone | Interactive timezone selection, automatic sync |
-| `auto-reboot.sh` | Schedule automatic reboots | Flexible scheduling, cron integration |
-| `firewall-manager.sh` | UFW firewall management | Rule management, port opening, preset configs |
-| `ssh-hardening.sh` | SSH security configuration | Disable root login, key-only auth, custom ports |
-| `fail2ban-setup.sh` | Install and configure Fail2ban | Auto-ban malicious IPs, SSH protection |
-| `user-manager.sh` | User account management | Create/delete users, sudo access, password reset |
-| `backup-manager.sh` | Backup automation tool | Scheduled backups, compression, retention policies |
+| Script | Description |
+|--------|-------------|
+| `set-timezone.sh` | Configure system timezone interactively |
+| `schedule-reboot.sh` | Schedule automatic system reboots |
+| `manage-users.sh` | User account management (create/delete/sudo) |
+| `system-info.sh` | Comprehensive system information display |
+| `disk-manager.sh` | Disk usage analysis and cleanup |
+| `service-manager.sh` | Systemd service management helper |
+| `package-manager.sh` | Universal package manager wrapper |
+| `kernel-update.sh` | Safe kernel update and rollback |
+| `performance-tuning.sh` | System performance optimization |
+| `log-analyzer.sh` | System log analysis and rotation |
 
-### 🌐 **Network Tools**
+---
 
-| Script | Description | Key Features |
-|--------|-------------|--------------|
-| `bandwidth-test.sh` | Network speed testing | Upload/download speed tests, latency checks |
-| `port-scanner.sh` | Simple port scanner | Scan open ports, service detection |
-| `network-info.sh` | Network configuration display | IP addresses, interfaces, routing tables |
-| `smb-mount-manager.sh` | SMB/CIFS mount management | Mount Windows shares, persistent mounts |
+### 🔒 **Security** (11 scripts)
+Security hardening, compliance, and auditing tools.
 
-### 💻 **Development Tools**
+| Script | Description |
+|--------|-------------|
+| `manage-firewall.sh` | UFW firewall rule management |
+| `harden-ssh.sh` | SSH security configuration (key-only auth, custom ports) |
+| `setup-fail2ban.sh` | Fail2ban installation and configuration |
+| `security-audit.sh` | Comprehensive security audit (CIS benchmarks) |
+| `ssl-checker.sh` | SSL/TLS certificate validator and monitor |
+| `port-security.sh` | Open port scanner and security checker |
+| `selinux-manager.sh` | SELinux configuration and troubleshooting |
+| `apparmor-manager.sh` | AppArmor profile management |
+| `vulnerability-scan.sh` | Basic vulnerability scanner (Lynis integration) |
+| `password-policy.sh` | Enforce password policies |
+| `audit-logs.sh` | Security audit log analyzer |
 
-| Script | Description | Key Features |
-|--------|-------------|--------------|
-| `git-setup.sh` | Git configuration and SSH keys | Generate SSH keys, configure Git globally |
-| `python-env.sh` | Python virtual environment manager | Create/manage venvs, package installation |
-| `pm2-manager.sh` | PM2 process manager for Node.js | Start/stop/monitor Node apps, auto-restart |
-| `github-runner-manager.sh` | GitHub Actions runner manager | Single runner per repository management |
-| `github-runner-manage.sh` | Advanced GitHub runner controller | Multiple runners, service management |
-| `github-runner-manager-all-in-one.sh` | **⭐ Complete runner solution** | All-in-one script for managing multiple self-hosted GitHub Actions runners |
+---
 
-### 🐳 **Docker Management**
+### 🌐 **Networking** (11 scripts)
+Network configuration, diagnostics, and monitoring tools.
 
-| Script | Description | Key Features |
-|--------|-------------|--------------|
-| `install.sh` | Install Docker & Docker Compose | Latest version, automatic setup |
-| `cleanup.sh` | Remove unused resources | Clean containers, images, volumes, networks |
-| `remove-container.sh` | Interactive container removal | Select and remove containers easily |
+| Script | Description |
+|--------|-------------|
+| `test-bandwidth.sh` | Network speed testing (upload/download) |
+| `scan-ports.sh` | Simple port scanner |
+| `show-network-info.sh` | Network configuration display |
+| `manage-smb-mounts.sh` | SMB/CIFS mount management |
+| `dns-manager.sh` | DNS configuration and testing |
+| `network-diagnostics.sh` | Comprehensive network troubleshooting |
+| `vpn-setup.sh` | WireGuard/OpenVPN setup wizard |
+| `traffic-monitor.sh` | Real-time network traffic monitoring |
+| `firewall-rules.sh` | Advanced iptables/nftables management |
+| `load-balancer.sh` | HAProxy/Nginx load balancer setup |
+| `network-benchmark.sh` | Network performance benchmarking |
 
-### 🌍 **Web Server Tools**
+---
 
-| Script | Description | Key Features |
-|--------|-------------|--------------|
-| `certbot-install.sh` | Install Certbot and plugins | Nginx/Apache plugins, auto-installation |
-| `certbot-obtain.sh` | Obtain and apply SSL certificates | Free Let's Encrypt SSL, automatic configuration |
-| `certbot-renew.sh` | Renew SSL certificates | Multiple renewal methods, batch renewal |
-| `certbot-add-domain.sh` | Add domains to existing certificates | Expand certificate coverage |
-| `certbot-auto-renew.sh` | Toggle automatic SSL renewal | Set up auto-renewal cron jobs |
-| `reverse-proxy.sh` | Configure reverse proxy | Nginx reverse proxy setup, load balancing |
-| `wordpress-backup.sh` | WordPress site backup | Files + database dump, compression |
-| `config-checker.sh` | Web server config validator | Detect and fix configuration issues |
+### 🐳 **Containers** (10 scripts)
+Docker and container management tools.
 
-### 🗄️ **Database Tools**
+| Script | Description |
+|--------|-------------|
+| `install-docker.sh` | Docker & Docker Compose installation |
+| `cleanup-docker.sh` | Remove unused containers/images/volumes |
+| `remove-containers.sh` | Interactive container removal |
+| `docker-compose-manager.sh` | Docker Compose project management |
+| `docker-security-scan.sh` | Container security scanning (Trivy) |
+| `docker-registry.sh` | Private Docker registry setup |
+| `docker-network-manager.sh` | Docker network management |
+| `docker-volume-manager.sh` | Docker volume backup/restore |
+| `podman-setup.sh` | Podman installation and migration |
+| `container-health.sh` | Container health monitoring |
 
-| Script | Description | Key Features |
-|--------|-------------|--------------|
-| `mariadb-phpmyadmin.sh` | Install MariaDB 10 with phpMyAdmin | Complete database + web interface |
-| `mysql-install.sh` | Install MySQL server | Secure installation, root password setup |
+---
 
-### 📊 **Monitoring**
+### ☸️ **Kubernetes** (10 scripts)
+Kubernetes cluster management and deployment tools.
 
-| Script | Description | Key Features |
-|--------|-------------|--------------|
-| `server-health.sh` | Complete server health check | CPU, memory, disk, services, uptime monitoring |
+| Script | Description |
+|--------|-------------|
+| `install-k3s.sh` | Lightweight Kubernetes (K3s) installation |
+| `install-minikube.sh` | Minikube setup for local development |
+| `kubectl-setup.sh` | kubectl and kubeconfig management |
+| `helm-manager.sh` | Helm chart deployment and management |
+| `k8s-dashboard.sh` | Kubernetes dashboard installation |
+| `k8s-monitoring.sh` | Prometheus + Grafana for K8s |
+| `k8s-ingress.sh` | Ingress controller setup (Nginx/Traefik) |
+| `k8s-backup.sh` | Velero backup setup |
+| `k8s-troubleshoot.sh` | Kubernetes troubleshooting helper |
+| `k8s-secrets.sh` | Secrets management (Sealed Secrets/Vault) |
 
-### 🟢 **Node.js & PHP**
+---
 
-| Script | Description | Key Features |
-|--------|-------------|--------------|
-| `nodejs/install.sh` | Install Node.js and npm | Version selection, NVM support |
-| `php/install.sh` | Install PHP | Multiple version support |
-| `php/extensions.sh` | Install PHP extensions | Common extensions, interactive selection |
+### 🔄 **CI/CD** (10 scripts)
+Continuous Integration and Deployment pipeline tools.
+
+| Script | Description |
+|--------|-------------|
+| `github-runner-basic.sh` | GitHub Actions runner (single instance) |
+| `github-runner-advanced.sh` | ⭐ Advanced GitHub runner manager (multi-instance) |
+| `jenkins-setup.sh` | Jenkins installation and configuration |
+| `gitlab-runner.sh` | GitLab CI runner setup |
+| `drone-ci.sh` | Drone CI installation |
+| `argocd-setup.sh` | ArgoCD for GitOps |
+| `tekton-setup.sh` | Tekton Pipelines installation |
+| `sonarqube-setup.sh` | Code quality analysis setup |
+| `nexus-setup.sh` | Artifact repository setup |
+| `pipeline-templates.sh` | CI/CD pipeline template generator |
+
+---
+
+### 🌍 **Web Server** (16 scripts)
+Web server installation, configuration, and SSL management.
+
+| Script | Description |
+|--------|-------------|
+| `install-certbot.sh` | Certbot and plugins installation |
+| `obtain-ssl-cert.sh` | Obtain Let's Encrypt SSL certificates |
+| `renew-ssl-cert.sh` | Renew SSL certificates |
+| `add-ssl-domain.sh` | Add domains to existing certificates |
+| `auto-renew-ssl.sh` | Toggle automatic SSL renewal |
+| `setup-reverse-proxy.sh` | Configure Nginx reverse proxy |
+| `backup-wordpress.sh` | WordPress site backup (files + database) |
+| `check-webserver-config.sh` | Web server config validator |
+| `install-nginx.sh` | Nginx installation and basic config |
+| `install-apache.sh` | Apache installation and basic config |
+| `install-caddy.sh` | Caddy web server setup |
+| `vhost-manager.sh` | Virtual host management |
+| `php-fpm-tuning.sh` | PHP-FPM optimization |
+| `cache-setup.sh` | Redis/Memcached setup |
+| `cdn-setup.sh` | CDN configuration helper |
+| `waf-setup.sh` | ModSecurity WAF setup |
+
+---
+
+### 🗄️ **Database** (10 scripts)
+Database installation, management, and optimization.
+
+| Script | Description |
+|--------|-------------|
+| `install-mariadb-phpmyadmin.sh` | MariaDB 10 with phpMyAdmin |
+| `install-mysql.sh` | MySQL server installation |
+| `install-postgresql.sh` | PostgreSQL installation |
+| `install-mongodb.sh` | MongoDB installation |
+| `install-redis.sh` | Redis installation and configuration |
+| `db-backup.sh` | Universal database backup script |
+| `db-restore.sh` | Database restoration helper |
+| `db-replication.sh` | Database replication setup |
+| `db-performance.sh` | Database performance tuning |
+| `db-migration.sh` | Database migration helper |
+
+---
+
+### 📊 **Observability** (10 scripts)
+Monitoring, logging, and alerting solutions.
+
+| Script | Description |
+|--------|-------------|
+| `check-server-health.sh` | Complete server health check |
+| `prometheus-setup.sh` | Prometheus monitoring installation |
+| `grafana-setup.sh` | Grafana dashboard installation |
+| `elk-stack.sh` | ELK Stack (Elasticsearch, Logstash, Kibana) |
+| `loki-setup.sh` | Grafana Loki for log aggregation |
+| `alertmanager-setup.sh` | Prometheus Alertmanager |
+| `node-exporter.sh` | Prometheus Node Exporter |
+| `uptime-kuma.sh` | Uptime monitoring dashboard |
+| `netdata-setup.sh` | Real-time performance monitoring |
+| `log-aggregation.sh` | Centralized logging setup |
+| `apm-setup.sh` | Application Performance Monitoring |
+
+---
+
+### 🤖 **Automation** (8 scripts)
+Infrastructure as Code and configuration management tools.
+
+| Script | Description |
+|--------|-------------|
+| `ansible-setup.sh` | Ansible installation and configuration |
+| `terraform-setup.sh` | Terraform installation and workspace setup |
+| `ansible-playbook-runner.sh` | Ansible playbook execution helper |
+| `terraform-manager.sh` | Terraform state and workspace management |
+| `packer-setup.sh` | Packer for image building |
+| `vagrant-setup.sh` | Vagrant development environment |
+| `pulumi-setup.sh` | Pulumi infrastructure as code |
+| `cloud-init-generator.sh` | Cloud-init configuration generator |
+
+---
+
+### 💻 **Development** (13 scripts)
+Developer tools and environment setup.
+
+| Script | Description |
+|--------|-------------|
+| `setup-git.sh` | Git configuration and SSH keys |
+| `manage-python-env.sh` | Python virtual environment manager |
+| `manage-pm2.sh` | PM2 process manager for Node.js |
+| `install-nodejs.sh` | Node.js installation (NVM support) |
+| `install-php.sh` | PHP installation (multiple versions) |
+| `install-php-extensions.sh` | PHP extensions installation |
+| `install-go.sh` | Go language installation |
+| `install-rust.sh` | Rust toolchain installation |
+| `install-java.sh` | Java JDK installation |
+| `vscode-server.sh` | VS Code Server setup |
+| `tmux-setup.sh` | Tmux configuration and session manager |
+| `dotfiles-manager.sh` | Dotfiles backup and restore |
+| `dev-environment.sh` | Complete dev environment setup |
+
+---
+
+### 💾 **Backup & Recovery** (8 scripts)
+Backup automation and disaster recovery tools.
+
+| Script | Description |
+|--------|-------------|
+| `manage-backups.sh` | Backup automation tool |
+| `restic-setup.sh` | Restic backup tool setup |
+| `borg-backup.sh` | BorgBackup installation and configuration |
+| `snapshot-manager.sh` | LVM/ZFS snapshot management |
+| `disaster-recovery.sh` | Disaster recovery planning tool |
+| `cloud-backup.sh` | Cloud backup integration (S3, B2, etc.) |
+| `backup-verification.sh` | Backup integrity verification |
+| `restore-wizard.sh` | Interactive restore wizard |
 
 ---
 
 ## 🎯 Highlighted Features
 
-### ⭐ GitHub Actions Runner Manager (All-in-One)
+### ⭐ GitHub Actions Runner Manager (Advanced)
 
 The crown jewel of this toolbox! Manage multiple self-hosted GitHub Actions runners on a single machine.
 
@@ -175,16 +326,16 @@ The crown jewel of this toolbox! Manage multiple self-hosted GitHub Actions runn
 **Quick Usage:**
 ```bash
 # Install the complete system
-sudo ./github-runner-manager-all-in-one.sh install
+sudo ./github-runner-advanced.sh install
 
 # Add a runner interactively
-sudo ./github-runner-manager-all-in-one.sh add
+sudo ./github-runner-advanced.sh add
 
 # Monitor all runners in real-time
-./github-runner-manager-all-in-one.sh monitor
+./github-runner-advanced.sh monitor
 
 # View detailed status
-./github-runner-manager-all-in-one.sh status
+./github-runner-advanced.sh status
 ```
 
 **Perfect for:**
@@ -192,8 +343,6 @@ sudo ./github-runner-manager-all-in-one.sh add
 - CI/CD pipeline automation
 - Self-hosted GitHub Actions workflows
 - Development and testing environments
-
-📖 **Full Documentation:** [ALL_IN_ONE_README.md](tools/development/ALL_IN_ONE_README.md)
 
 ---
 
@@ -207,7 +356,7 @@ sudo ./github-runner-manager-all-in-one.sh add
    ```
 
 2. **Navigate the menu:**
-   - Categories are organized by function
+   - 12 categories organized by function with emoji indicators
    - System resources displayed at the top
    - Enter the number of your choice
    - Follow interactive prompts
@@ -219,9 +368,9 @@ sudo ./github-runner-manager-all-in-one.sh add
    cd linux-toolbox/tools
    
    # Run any script directly
-   sudo bash system/firewall-manager.sh
-   sudo bash webserver/certbot-obtain.sh
-   sudo bash development/github-runner-manager-all-in-one.sh install
+   sudo bash core-system/manage-users.sh
+   sudo bash security/harden-ssh.sh
+   sudo bash cicd/github-runner-advanced.sh install
    ```
 
 ### System Requirements
@@ -272,9 +421,10 @@ If you find this toolbox helpful, please consider giving it a star! ⭐
 
 <div align="center">
 
-**Made with ❤️ for the Linux community**
+**Made with ❤️ for the Linux DevOps community**
 
 *Simplifying server administration, one script at a time*
 
-</div>
+**143+ Scripts | 12 Categories | Constantly Growing**
 
+</div>
