@@ -194,16 +194,12 @@ Continuous Integration and Deployment pipeline tools.
 
 ---
 
-### 🌍 **Web Server** (16 scripts)
+### 🌍 **Web Server** (12 scripts)
 Web server installation, configuration, and SSL management.
 
 | Script | Description |
 |--------|-------------|
-| `install-certbot.sh` | Certbot and plugins installation |
-| `obtain-ssl-cert.sh` | Obtain Let's Encrypt SSL certificates |
-| `renew-ssl-cert.sh` | Renew SSL certificates |
-| `add-ssl-domain.sh` | Add domains to existing certificates |
-| `auto-renew-ssl.sh` | Toggle automatic SSL renewal |
+| `certbot-manager.sh` | ⭐ **All-in-One SSL Manager** (install, obtain, renew, manage certificates) |
 | `setup-reverse-proxy.sh` | Configure Nginx reverse proxy |
 | `backup-wordpress.sh` | WordPress site backup (files + database) |
 | `check-webserver-config.sh` | Web server config validator |
@@ -425,6 +421,6 @@ If you find this toolbox helpful, please consider giving it a star! ⭐
 
 *Simplifying server administration, one script at a time*
 
-**143+ Scripts | 12 Categories | Constantly Growing**
+**139+ Scripts | 12 Categories | Constantly Growing**
 
 </div>
