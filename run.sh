@@ -22,6 +22,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 show_banner() {
@@ -32,7 +33,7 @@ show_banner() {
     echo -e "███████╗██║██║ ╚████║╚██████╔╝██╔╝ ██╗       ██║   ╚██████╔╝╚██████╔╝███████╗███████║"
     echo -e "╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝       ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝${NC}"
     echo -e ""
-    echo -e "${YELLOW}by Nooblk${NC}\n"
+    echo -e "${YELLOW}Maintainer: noobLk-98${NC}\n"
 }
 
 # System resource info (plain text)
@@ -57,7 +58,7 @@ show_system_info() {
 }
 
 print_header() {
-    echo -e "${GREEN}$1${NC}"
+    echo -e "${GREEN}${BOLD}$1${NC}"
 }
 
 print_status() {
@@ -68,23 +69,30 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Get display name for category with emoji
+# Get display name for category (Title Case, No Emojis)
 get_category_display_name() {
     local category="$1"
     case "$category" in
-        "automation") echo "🤖 Automation" ;;
-        "backup-recovery") echo "💾 Backup & Recovery" ;;
-        "cicd") echo "🔄 CI/CD" ;;
-        "containers") echo "🐳 Containers" ;;
-        "core-system") echo "🖥️  Core System" ;;
-        "database") echo "🗄️  Database" ;;
-        "development") echo "💻 Development" ;;
-        "kubernetes") echo "☸️  Kubernetes" ;;
-        "networking") echo "🌐 Networking" ;;
-        "observability") echo "📊 Observability" ;;
-        "security") echo "🔒 Security" ;;
-        "webserver") echo "🌍 Web Server" ;;
-        *) echo "$category" ;;
+        "automation") echo "Automation" ;;
+        "backup-recovery") echo "Backup & Recovery" ;;
+        "cicd") echo "CI/CD" ;;
+        "containers") echo "Containers" ;;
+        "core-system") echo "Core System" ;;
+        "database") echo "Database" ;;
+        "development") echo "Development" ;;
+        "docker") echo "Docker" ;;
+        "kubernetes") echo "Kubernetes" ;;
+        "monitoring") echo "Monitoring" ;;
+        "networking") echo "Networking" ;;
+        "nodejs") echo "Node.js" ;;
+        "observability") echo "Observability" ;;
+        "security") echo "Security" ;;
+        "system") echo "System" ;;
+        "webserver") echo "Web Server" ;;
+        *) 
+            # Convert to Title Case for other categories
+            echo "$category" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++)sub(/./,toupper(substr($i,1,1)),$i)}1'
+            ;;
     esac
 }
 
@@ -124,17 +132,17 @@ update_from_repo() {
         git reset --hard HEAD
         git pull origin main
         if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✓ Successfully updated from repository!${NC}"
+            echo -e "${GREEN}Successfully updated from repository!${NC}"
         else
-            echo -e "${RED}✗ Failed to update from repository!${NC}"
+            echo -e "${RED}Failed to update from repository!${NC}"
             echo -e "${YELLOW}Trying to clone fresh copy...${NC}"
             cd /tmp
             rm -rf "$REPO_DIR"
             git clone "$REPO_URL" "$REPO_DIR"
             if [ $? -eq 0 ]; then
-                echo -e "${GREEN}✓ Successfully cloned repository!${NC}"
+                echo -e "${GREEN}Successfully cloned repository!${NC}"
             else
-                echo -e "${RED}✗ Failed to clone repository!${NC}"
+                echo -e "${RED}Failed to clone repository!${NC}"
             fi
         fi
     else
@@ -142,9 +150,9 @@ update_from_repo() {
         rm -rf "$REPO_DIR"
         git clone "$REPO_URL" "$REPO_DIR"
         if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✓ Successfully cloned repository!${NC}"
+            echo -e "${GREEN}Successfully cloned repository!${NC}"
         else
-            echo -e "${RED}✗ Failed to clone repository!${NC}"
+            echo -e "${RED}Failed to clone repository!${NC}"
         fi
     fi
     
@@ -154,7 +162,7 @@ update_from_repo() {
 # Display category menu
 show_category_menu() {
     show_system_info
-    print_header "🌈 Linux Toolbox Categories 🌈"
+    print_header "Linux Toolbox Categories"
     echo "--------------------------------"
     local i=1
     local categories=($(discover_categories))
@@ -163,8 +171,8 @@ show_category_menu() {
         echo -e "${CYAN}$i.${NC} ${display_name}"
         ((i++))
     done
-    echo -e "${MAGENTA}$i.${NC} 🔄 Update from Repo"
-    echo -e "${RED}0.${NC} ❌ Exit"
+    echo -e "${MAGENTA}$i.${NC} Update from Repo"
+    echo -e "${RED}0.${NC} Exit"
     echo ""
     echo -e "${MAGENTA}Select a category [0-$i]:${NC} "
     echo ""
@@ -176,7 +184,7 @@ show_tool_menu() {
     show_system_info
     local category="$1"
     local display_name=$(get_category_display_name "$category")
-    print_header "🛠️  $display_name Tools"
+    print_header "$display_name Tools"
     echo "--------------------------------"
     local i=1
     local tools=($(discover_tools_in_category "$category"))
@@ -185,7 +193,7 @@ show_tool_menu() {
         echo -e "${CYAN}$i.${NC} ${GREEN}$tool_name${NC}"
         ((i++))
     done
-    echo -e "${RED}0.${NC} ⬅️  Back"
+    echo -e "${RED}0.${NC} Back"
     echo ""
     echo -e "${MAGENTA}Select a tool to run [0-$(($i-1))]:${NC} "
 }
