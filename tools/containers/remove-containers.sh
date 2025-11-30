@@ -1,116 +1,138 @@
 #!/bin/bash
 
+# Interactive Docker Container Removal Tool
+# Allows selective removal of Docker containers
+
 # Colors
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${BLUE}Certbot Renewal Tool${NC}"
-echo "=============================="
-echo -e "${YELLOW}Select a renewal method:${NC}"
+echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║   Docker Container Removal Tool       ║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
 echo ""
-echo "1. Standard renewal"
-if command -v nginx >/dev/null 2>&1; then
-    echo "2. Nginx plugin renewal"
-fi
-if command -v apache2 >/dev/null 2>&1 || command -v httpd >/dev/null 2>&1; then
-    echo "3. Apache plugin renewal"
-fi
-echo "4. Standalone mode (stops web server temporarily)"
-echo "5. Webroot mode"
-echo "6. Try all methods"
-echo ""
-read -p "Enter your choice: " method_choice
 
-case $method_choice in
+# Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}✗ Docker is not installed${NC}"
+    exit 1
+fi
+
+# Check if Docker is running
+if ! docker info &> /dev/null; then
+    echo -e "${RED}✗ Docker is not running${NC}"
+    exit 1
+fi
+
+# Menu
+echo -e "${YELLOW}Select removal option:${NC}"
+echo "1. Remove all stopped containers"
+echo "2. Remove specific container (interactive)"
+echo "3. Remove containers by status"
+echo "4. Remove all containers (including running)"
+echo "5. Exit"
+echo ""
+read -p "Enter your choice (1-5): " choice
+
+case $choice in
     1)
-        echo -e "${BLUE}Standard renewal: certbot renew${NC}"
-        sudo certbot renew
+        echo -e "${CYAN}Listing stopped containers...${NC}"
+        STOPPED=$(docker ps -a -f status=exited -q)
+        
+        if [ -z "$STOPPED" ]; then
+            echo -e "${YELLOW}No stopped containers found${NC}"
+        else
+            docker ps -a -f status=exited
+            echo ""
+            read -p "Remove all stopped containers? (y/n): " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                docker container prune -f
+                echo -e "${GREEN}✓ Stopped containers removed${NC}"
+            else
+                echo -e "${YELLOW}Operation cancelled${NC}"
+            fi
+        fi
         ;;
     2)
-        if command -v nginx >/dev/null 2>&1; then
-            echo -e "${BLUE}Nginx plugin renewal${NC}"
-            sudo certbot renew --nginx
-        else
-            echo -e "${RED}Nginx not found!${NC}"
+        echo -e "${CYAN}Available containers:${NC}"
+        docker ps -a --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Image}}"
+        echo ""
+        read -p "Enter container ID or name to remove: " container
+        
+        if [ -n "$container" ]; then
+            if docker ps -a --format "{{.ID}} {{.Names}}" | grep -q "$container"; then
+                read -p "Force remove (stop if running)? (y/n): " force
+                if [[ "$force" =~ ^[Yy]$ ]]; then
+                    docker rm -f "$container"
+                    echo -e "${GREEN}✓ Container removed${NC}"
+                else
+                    docker rm "$container"
+                    if [ $? -eq 0 ]; then
+                        echo -e "${GREEN}✓ Container removed${NC}"
+                    else
+                        echo -e "${RED}✗ Failed to remove container (may be running)${NC}"
+                    fi
+                fi
+            else
+                echo -e "${RED}✗ Container not found${NC}"
+            fi
         fi
         ;;
     3)
-        if command -v apache2 >/dev/null 2>&1 || command -v httpd >/dev/null 2>&1; then
-            echo -e "${BLUE}Apache plugin renewal${NC}"
-            sudo certbot renew --apache
+        echo -e "${YELLOW}Select status:${NC}"
+        echo "1. Exited"
+        echo "2. Created"
+        echo "3. Dead"
+        echo ""
+        read -p "Enter choice (1-3): " status_choice
+        
+        case $status_choice in
+            1) STATUS="exited" ;;
+            2) STATUS="created" ;;
+            3) STATUS="dead" ;;
+            *) echo -e "${RED}Invalid choice${NC}"; exit 1 ;;
+        esac
+        
+        echo -e "${CYAN}Containers with status: $STATUS${NC}"
+        docker ps -a -f status=$STATUS
+        echo ""
+        read -p "Remove all containers with this status? (y/n): " confirm
+        if [[ "$confirm" =~ ^[Yy]$ ]]; then
+            docker ps -a -f status=$STATUS -q | xargs -r docker rm
+            echo -e "${GREEN}✓ Containers removed${NC}"
         else
-            echo -e "${RED}Apache not found!${NC}"
+            echo -e "${YELLOW}Operation cancelled${NC}"
         fi
         ;;
     4)
-        echo -e "${BLUE}Standalone mode${NC}"
-        echo -e "${YELLOW}Stopping web servers...${NC}"
-        sudo systemctl stop nginx 2>/dev/null
-        sudo systemctl stop apache2 2>/dev/null
-        sudo systemctl stop httpd 2>/dev/null
-        sudo certbot renew --standalone
-        echo -e "${YELLOW}Starting web servers...${NC}"
-        sudo systemctl start nginx 2>/dev/null
-        sudo systemctl start apache2 2>/dev/null
-        sudo systemctl start httpd 2>/dev/null
+        echo -e "${RED}⚠ WARNING: This will remove ALL containers including running ones!${NC}"
+        docker ps -a
+        echo ""
+        read -p "Are you absolutely sure? Type 'yes' to confirm: " confirm
+        if [ "$confirm" = "yes" ]; then
+            docker rm -f $(docker ps -a -q)
+            echo -e "${GREEN}✓ All containers removed${NC}"
+        else
+            echo -e "${YELLOW}Operation cancelled${NC}"
+        fi
         ;;
     5)
-        read -p "Enter your webroot path (e.g., /var/www/html): " WEBROOT
-        echo -e "${BLUE}Webroot mode${NC}"
-        sudo certbot renew --webroot -w "$WEBROOT"
-        ;;
-    6)
-        # 1. Standard renewal
-        echo -e "${BLUE}1. Standard: certbot renew${NC}"
-        sudo certbot renew
-        echo ""
-
-        # 2. Renew with nginx plugin
-        if command -v nginx >/dev/null 2>&1; then
-            echo -e "${BLUE}2. Nginx plugin: certbot --nginx renew${NC}"
-            sudo certbot renew --nginx
-            echo ""
-        fi
-
-        # 3. Renew with apache plugin
-        if command -v apache2 >/dev/null 2>&1 || command -v httpd >/dev/null 2>&1; then
-            echo -e "${BLUE}3. Apache plugin: certbot --apache renew${NC}"
-            sudo certbot renew --apache
-            echo ""
-        fi
-
-        # 4. Renew with standalone mode (requires stopping web server)
-        echo -e "${BLUE}4. Standalone mode: certbot renew --standalone${NC}"
-        echo -e "${YELLOW}Standalone mode requires stopping your web server temporarily.${NC}"
-        read -p "Do you want to try standalone mode? (y/n): " standalone_choice
-        if [[ "$standalone_choice" =~ ^[Yy]$ ]]; then
-            sudo systemctl stop nginx 2>/dev/null
-            sudo systemctl stop apache2 2>/dev/null
-            sudo systemctl stop httpd 2>/dev/null
-            sudo certbot renew --standalone
-            sudo systemctl start nginx 2>/dev/null
-            sudo systemctl start apache2 2>/dev/null
-            sudo systemctl start httpd 2>/dev/null
-            echo ""
-        fi
-
-        # 5. Renew with webroot mode (requires webroot path)
-        echo -e "${BLUE}5. Webroot mode: certbot renew --webroot -w /path/to/webroot${NC}"
-        read -p "Do you want to try webroot mode? (y/n): " webroot_choice
-        if [[ "$webroot_choice" =~ ^[Yy]$ ]]; then
-            read -p "Enter your webroot path (e.g., /var/www/html): " WEBROOT
-            sudo certbot renew --webroot -w "$WEBROOT"
-            echo ""
-        fi
+        echo -e "${YELLOW}Exiting${NC}"
+        exit 0
         ;;
     *)
-        echo -e "${RED}Invalid choice!${NC}"
+        echo -e "${RED}Invalid choice${NC}"
         exit 1
         ;;
 esac
 
-echo -e "${GREEN}Renewal completed.${NC}"
+echo ""
+echo -e "${CYAN}Remaining containers:${NC}"
+docker ps -a
+
+echo ""
 read -p "Press Enter to continue..."

@@ -1,116 +1,100 @@
 #!/bin/bash
 
+# Nginx Reverse Proxy Setup Script
+# Configure Nginx as a reverse proxy for applications
+
 # Colors
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${BLUE}Certbot Renewal Tool${NC}"
-echo "=============================="
-echo -e "${YELLOW}Select a renewal method:${NC}"
+echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║   Nginx Reverse Proxy Setup           ║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
 echo ""
-echo "1. Standard renewal"
-if command -v nginx >/dev/null 2>&1; then
-    echo "2. Nginx plugin renewal"
+
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${RED}✗ This script must be run as root${NC}"
+    exit 1
 fi
-if command -v apache2 >/dev/null 2>&1 || command -v httpd >/dev/null 2>&1; then
-    echo "3. Apache plugin renewal"
+
+# Check if Nginx is installed
+if ! command -v nginx &> /dev/null; then
+    echo -e "${YELLOW}Nginx is not installed. Installing...${NC}"
+    apt-get update
+    apt-get install -y nginx
 fi
-echo "4. Standalone mode (stops web server temporarily)"
-echo "5. Webroot mode"
-echo "6. Try all methods"
+
+# Get configuration details
+echo -e "${CYAN}Enter reverse proxy configuration:${NC}"
 echo ""
-read -p "Enter your choice: " method_choice
+read -p "Domain name (e.g., app.example.com): " domain
+read -p "Backend server (e.g., localhost:3000 or 127.0.0.1:8080): " backend
+read -p "Enable SSL/HTTPS? (y/n): " enable_ssl
 
-case $method_choice in
-    1)
-        echo -e "${BLUE}Standard renewal: certbot renew${NC}"
-        sudo certbot renew
-        ;;
-    2)
-        if command -v nginx >/dev/null 2>&1; then
-            echo -e "${BLUE}Nginx plugin renewal${NC}"
-            sudo certbot renew --nginx
-        else
-            echo -e "${RED}Nginx not found!${NC}"
-        fi
-        ;;
-    3)
-        if command -v apache2 >/dev/null 2>&1 || command -v httpd >/dev/null 2>&1; then
-            echo -e "${BLUE}Apache plugin renewal${NC}"
-            sudo certbot renew --apache
-        else
-            echo -e "${RED}Apache not found!${NC}"
-        fi
-        ;;
-    4)
-        echo -e "${BLUE}Standalone mode${NC}"
-        echo -e "${YELLOW}Stopping web servers...${NC}"
-        sudo systemctl stop nginx 2>/dev/null
-        sudo systemctl stop apache2 2>/dev/null
-        sudo systemctl stop httpd 2>/dev/null
-        sudo certbot renew --standalone
-        echo -e "${YELLOW}Starting web servers...${NC}"
-        sudo systemctl start nginx 2>/dev/null
-        sudo systemctl start apache2 2>/dev/null
-        sudo systemctl start httpd 2>/dev/null
-        ;;
-    5)
-        read -p "Enter your webroot path (e.g., /var/www/html): " WEBROOT
-        echo -e "${BLUE}Webroot mode${NC}"
-        sudo certbot renew --webroot -w "$WEBROOT"
-        ;;
-    6)
-        # 1. Standard renewal
-        echo -e "${BLUE}1. Standard: certbot renew${NC}"
-        sudo certbot renew
-        echo ""
+# Create Nginx configuration
+config_file="/etc/nginx/sites-available/$domain"
 
-        # 2. Renew with nginx plugin
-        if command -v nginx >/dev/null 2>&1; then
-            echo -e "${BLUE}2. Nginx plugin: certbot --nginx renew${NC}"
-            sudo certbot renew --nginx
-            echo ""
-        fi
+echo -e "${CYAN}Creating Nginx configuration...${NC}"
 
-        # 3. Renew with apache plugin
-        if command -v apache2 >/dev/null 2>&1 || command -v httpd >/dev/null 2>&1; then
-            echo -e "${BLUE}3. Apache plugin: certbot --apache renew${NC}"
-            sudo certbot renew --apache
-            echo ""
-        fi
+cat > "$config_file" <<EOF
+server {
+    listen 80;
+    server_name $domain;
 
-        # 4. Renew with standalone mode (requires stopping web server)
-        echo -e "${BLUE}4. Standalone mode: certbot renew --standalone${NC}"
-        echo -e "${YELLOW}Standalone mode requires stopping your web server temporarily.${NC}"
-        read -p "Do you want to try standalone mode? (y/n): " standalone_choice
-        if [[ "$standalone_choice" =~ ^[Yy]$ ]]; then
-            sudo systemctl stop nginx 2>/dev/null
-            sudo systemctl stop apache2 2>/dev/null
-            sudo systemctl stop httpd 2>/dev/null
-            sudo certbot renew --standalone
-            sudo systemctl start nginx 2>/dev/null
-            sudo systemctl start apache2 2>/dev/null
-            sudo systemctl start httpd 2>/dev/null
-            echo ""
-        fi
+    location / {
+        proxy_pass http://$backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+EOF
 
-        # 5. Renew with webroot mode (requires webroot path)
-        echo -e "${BLUE}5. Webroot mode: certbot renew --webroot -w /path/to/webroot${NC}"
-        read -p "Do you want to try webroot mode? (y/n): " webroot_choice
-        if [[ "$webroot_choice" =~ ^[Yy]$ ]]; then
-            read -p "Enter your webroot path (e.g., /var/www/html): " WEBROOT
-            sudo certbot renew --webroot -w "$WEBROOT"
-            echo ""
-        fi
-        ;;
-    *)
-        echo -e "${RED}Invalid choice!${NC}"
-        exit 1
-        ;;
-esac
+# Enable the site
+ln -sf "$config_file" "/etc/nginx/sites-enabled/$domain"
 
-echo -e "${GREEN}Renewal completed.${NC}"
+# Test Nginx configuration
+echo -e "${CYAN}Testing Nginx configuration...${NC}"
+if nginx -t; then
+    echo -e "${GREEN}✓ Configuration is valid${NC}"
+    
+    # Reload Nginx
+    systemctl reload nginx
+    echo -e "${GREEN}✓ Nginx reloaded${NC}"
+else
+    echo -e "${RED}✗ Configuration error${NC}"
+    exit 1
+fi
+
+# Setup SSL if requested
+if [[ "$enable_ssl" =~ ^[Yy]$ ]]; then
+    if command -v certbot &> /dev/null; then
+        echo -e "${CYAN}Setting up SSL with Certbot...${NC}"
+        certbot --nginx -d "$domain"
+    else
+        echo -e "${YELLOW}Certbot not installed. Install it to enable SSL:${NC}"
+        echo "  apt-get install certbot python3-certbot-nginx"
+        echo "  certbot --nginx -d $domain"
+    fi
+fi
+
+echo ""
+echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║   Reverse Proxy Setup Complete!       ║${NC}"
+echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "${CYAN}Configuration file: $config_file${NC}"
+echo -e "${CYAN}Domain: $domain${NC}"
+echo -e "${CYAN}Backend: $backend${NC}"
+
 read -p "Press Enter to continue..."
