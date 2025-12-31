@@ -8,8 +8,6 @@
 #              displays recommendation, and allows custom value input
 ################################################################################
 
-set -e
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -48,16 +46,15 @@ check_root() {
     fi
 }
 
-# Get current RAM size in GB
+# Get current RAM size in KB
 get_ram_size() {
-    local ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    local ram_gb=$(echo "scale=2; $ram_kb / 1024 / 1024" | bc)
-    echo "$ram_gb"
+    grep MemTotal /proc/meminfo | awk '{print $2}'
 }
 
-# Calculate recommended swap size based on RAM
+# Calculate recommended swap size based on RAM (using integer math)
 calculate_recommended_swap() {
-    local ram_gb=$1
+    local ram_kb=$1
+    local ram_gb=$((ram_kb / 1024 / 1024))
     local recommended_swap
     
     # Swap recommendation logic:
@@ -66,12 +63,12 @@ calculate_recommended_swap() {
     # RAM 8-64GB: 1x RAM
     # RAM > 64GB: 0.5x RAM (or fixed 32GB)
     
-    if (( $(echo "$ram_gb < 2" | bc -l) )); then
-        recommended_swap=$(echo "scale=2; $ram_gb * 2" | bc)
-    elif (( $(echo "$ram_gb < 8" | bc -l) )); then
-        recommended_swap=$(echo "scale=2; $ram_gb * 1.5" | bc)
-    elif (( $(echo "$ram_gb < 64" | bc -l) )); then
-        recommended_swap=$(echo "scale=2; $ram_gb * 1" | bc)
+    if [ "$ram_gb" -lt 2 ]; then
+        recommended_swap=$((ram_gb * 2))
+    elif [ "$ram_gb" -lt 8 ]; then
+        recommended_swap=$((ram_gb * 3 / 2))  # 1.5x using integer math
+    elif [ "$ram_gb" -lt 64 ]; then
+        recommended_swap=$((ram_gb * 1))
     else
         recommended_swap=32
     fi
@@ -87,7 +84,7 @@ check_existing_swap() {
 
 # Convert GB to MB for dd command
 gb_to_mb() {
-    echo "$1 * 1024" | bc
+    echo $(($1 * 1024))
 }
 
 # Create swap file
@@ -105,15 +102,42 @@ create_swap_file() {
             print_error "Operation cancelled"
             return 1
         fi
-        swapoff "$swap_file" 2>/dev/null || true
+        swapoff "$swap_file" 2>/dev/null || print_warning "Could not deactivate existing swap"
         rm -f "$swap_file"
     fi
     
-    # Create swap file
-    dd if=/dev/zero of="$swap_file" bs=1M count="$swap_size_mb" 2>/dev/null
-    chmod 600 "$swap_file"
-    mkswap "$swap_file" > /dev/null
-    swapon "$swap_file"
+    # Create swap file using fallocate if available, otherwise dd
+    if command -v fallocate &> /dev/null; then
+        print_info "Using fallocate for faster allocation..."
+        if ! fallocate -l "${swap_size_mb}M" "$swap_file"; then
+            print_error "fallocate failed, trying dd instead..."
+            if ! dd if=/dev/zero of="$swap_file" bs=1M count="$swap_size_mb"; then
+                print_error "Failed to create swap file"
+                return 1
+            fi
+        fi
+    else
+        print_info "Using dd to create swap file..."
+        if ! dd if=/dev/zero of="$swap_file" bs=1M count="$swap_size_mb"; then
+            print_error "Failed to create swap file"
+            return 1
+        fi
+    fi
+    
+    print_info "Setting permissions..."
+    chmod 600 "$swap_file" || { print_error "Failed to set permissions"; return 1; }
+    
+    print_info "Formatting as swap..."
+    if ! mkswap "$swap_file"; then
+        print_error "Failed to format swap file"
+        return 1
+    fi
+    
+    print_info "Activating swap..."
+    if ! swapon "$swap_file"; then
+        print_error "Failed to activate swap"
+        return 1
+    fi
     
     print_success "Swap file created and activated"
 }
@@ -146,8 +170,9 @@ main() {
     local current_ram=$(get_ram_size)
     local current_swap=$(check_existing_swap)
     local recommended_swap=$(calculate_recommended_swap "$current_ram")
+    local ram_gb=$((current_ram / 1024 / 1024))
     
-    print_info "Current System RAM: ${current_ram}GB"
+    print_info "Current System RAM: ${ram_gb}GB"
     print_info "Current Swap: ${current_swap}GB"
     print_info "Recommended Swap: ${recommended_swap}GB"
     
@@ -169,9 +194,13 @@ main() {
         2)
             echo ""
             read -p "Enter desired swap size in GB: " custom_swap
-            if ! [[ "$custom_swap" =~ ^[0-9]+\.?[0-9]*$ ]] || (( $(echo "$custom_swap <= 0" | bc -l) )); then
-                print_error "Invalid input. Please enter a positive number."
-                exit 1
+            if ! [[ "$custom_swap" =~ ^[0-9]+$ ]]; then
+                print_error "Invalid input. Please enter a positive whole number."
+                return 1
+            fi
+            if [ "$custom_swap" -le 0 ]; then
+                print_error "Swap size must be greater than 0"
+                return 1
             fi
             create_swap_with_size "$custom_swap"
             ;;
@@ -187,7 +216,7 @@ main() {
             ;;
         *)
             print_error "Invalid option"
-            exit 1
+            return 1
             ;;
     esac
 }
