@@ -95,18 +95,6 @@ configure_security() {
 # Hide Nginx version
 server_tokens off;
 
-# Security headers
-add_header X-Frame-Options "SAMEORIGIN" always;
-add_header X-XSS-Protection "1; mode=block" always;
-add_header X-Content-Type-Options "nosniff" always;
-add_header Referrer-Policy "no-referrer-when-downgrade" always;
-add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-# Limit request methods
-if ($request_method !~ ^(GET|HEAD|POST)$ ) {
-    return 405;
-}
-
 # Buffer overflow protection
 client_body_buffer_size 1k;
 client_header_buffer_size 1k;
@@ -207,8 +195,19 @@ server {
     
     server_name _;
     
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    
     location / {
         try_files $uri $uri/ =404;
+        
+        # Limit request methods
+        if ($request_method !~ ^(GET|HEAD|POST)$ ) {
+            return 405;
+        }
     }
     
     # Deny access to hidden files
@@ -239,8 +238,19 @@ server {
     
     server_name _;
     
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    
     location / {
         try_files $uri $uri/ =404;
+        
+        # Limit request methods
+        if ($request_method !~ ^(GET|HEAD|POST)$ ) {
+            return 405;
+        }
     }
     
     # Deny access to hidden files
