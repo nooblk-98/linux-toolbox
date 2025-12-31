@@ -15,6 +15,25 @@ fi
 
 TOOLS_DIR="$REPO_DIR/tools"
 
+# Check if dialog is installed
+check_dialog() {
+    if ! command -v dialog &> /dev/null; then
+        echo "Dialog is not installed. Installing..."
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y dialog
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y dialog
+        elif command -v dnf &> /dev/null; then
+            sudo dnf install -y dialog
+        elif command -v pacman &> /dev/null; then
+            sudo pacman -S --noconfirm dialog
+        else
+            echo "Unable to install dialog. Please install it manually."
+            exit 1
+        fi
+    fi
+}
+
 # Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -172,11 +191,70 @@ show_category_menu() {
         ((i++))
     done
     echo -e "${MAGENTA}$i.${NC} Update from Repo"
+    echo -e "${YELLOW}$((i+1)).${NC} Multi-Select Mode (Dialog)"
     echo -e "${RED}0.${NC} Exit"
     echo ""
-    echo -e "${MAGENTA}Select a category [0-$i]:${NC} "
+    echo -e "${MAGENTA}Select a category [0-$((i+1))]:${NC} "
     echo ""
     echo "Tip: Press Ctrl+C to quit at any time."
+}
+
+# Multi-select dialog interface
+show_multi_select_menu() {
+    check_dialog
+    
+    # Collect all tools with their categories
+    local options=()
+    local categories=($(discover_categories))
+    
+    for cat in "${categories[@]}"; do
+        local cat_display=$(get_category_display_name "$cat")
+        local tools=($(discover_tools_in_category "$cat"))
+        
+        for tool in "${tools[@]}"; do
+            local tool_name=$(basename "$tool" .sh)
+            local tool_display="$tool_name"
+            options+=("$tool" "$tool_display" "$cat_display" "off")
+        done
+    done
+    
+    # Show dialog checklist
+    local selected
+    selected=$(dialog --clear --backtitle "Linux Toolbox - Multi-Select Mode" \
+                     --title "Select tools to install (use spacebar to select)" \
+                     --checklist "Choose tools:" 20 70 15 \
+                     "${options[@]}" \
+                     3>&1 1>&2 2>&3)
+    
+    local exit_code=$?
+    clear
+    
+    if [ $exit_code -eq 0 ] && [ -n "$selected" ]; then
+        # Remove quotes and process selected tools
+        selected=$(echo "$selected" | tr -d '"')
+        
+        show_banner
+        echo -e "${GREEN}Installing selected tools...${NC}\n"
+        
+        for tool_path in $selected; do
+            if [ -f "$tool_path" ]; then
+                local tool_name=$(basename "$tool_path" .sh)
+                echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo -e "${YELLOW}Running: ${GREEN}$tool_name${NC}"
+                echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+                bash "$tool_path"
+                echo -e "\n${GREEN}✓ Completed: $tool_name${NC}\n"
+            fi
+        done
+        
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${GREEN}All selected tools have been processed!${NC}"
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+        read -p "Press Enter to return to main menu..."
+    elif [ $exit_code -eq 1 ]; then
+        echo -e "${YELLOW}Operation cancelled.${NC}"
+        sleep 1
+    fi
 }
 
 # Display tool menu for a category
@@ -208,12 +286,15 @@ main() {
         read cat_choice
         local categories=($(discover_categories))
         local update_option=$((${#categories[@]} + 1))
+        local multiselect_option=$((${#categories[@]} + 2))
         
         if [[ "$cat_choice" == "0" ]]; then
             print_status "Exiting. Goodbye!"
             exit 0
         elif [[ "$cat_choice" == "$update_option" ]]; then
             update_from_repo
+        elif [[ "$cat_choice" == "$multiselect_option" ]]; then
+            show_multi_select_menu
         elif [[ "$cat_choice" -ge 1 && "$cat_choice" -le "${#categories[@]}" ]]; then
             local category="${categories[$((cat_choice-1))]}"
             while true; do
