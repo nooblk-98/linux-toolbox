@@ -71,6 +71,13 @@ esac
 echo ""
 read -p "Backend server (e.g., localhost:3000 or 127.0.0.1:8080): " backend
 
+# Normalize backend URL: allow inputs with or without scheme
+if [[ "$backend" =~ ^https?:// ]]; then
+    backend_url="$backend"
+else
+    backend_url="http://$backend"
+fi
+
 echo ""
 echo -e "${CYAN}SSL/HTTPS Configuration:${NC}"
 read -p "Enable SSL with Certbot? (y/n): " enable_ssl
@@ -116,8 +123,8 @@ if [[ "$install_certbot" =~ ^[Yy]$ ]]; then
     fi
 fi
 
-# Create Nginx configuration
-config_file="/etc/nginx/sites-available/$domain"
+# Create Nginx configuration (use .conf extension for broader compatibility)
+config_file="/etc/nginx/sites-available/$domain.conf"
 
 echo ""
 echo -e "${CYAN}Creating Nginx configuration...${NC}"
@@ -129,10 +136,10 @@ server {
     server_name $server_name;
 
     location / {
-        proxy_pass http://$backend;
+        proxy_pass $backend_url;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection upgrade;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -153,7 +160,7 @@ server {
 EOF
 
 # Enable the site
-ln -sf "$config_file" "/etc/nginx/sites-enabled/$domain"
+ln -sf "$config_file" "/etc/nginx/sites-enabled/$domain.conf"
 
 # Test Nginx configuration
 echo -e "${CYAN}Testing Nginx configuration...${NC}"
@@ -216,7 +223,7 @@ echo ""
 echo -e "${CYAN}Configuration Details:${NC}"
 echo -e "  Config file: ${GREEN}$config_file${NC}"
 echo -e "  Domain(s): ${GREEN}$server_name${NC}"
-echo -e "  Backend: ${GREEN}$backend${NC}"
+echo -e "  Backend: ${GREEN}$backend_url${NC}"
 echo -e "  SSL: ${GREEN}$([ "$enable_ssl" = "y" ] && echo "Enabled" || echo "Disabled")${NC}"
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
